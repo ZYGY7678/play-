@@ -417,8 +417,8 @@ public final class GameView extends FrameLayout {
           return;
         }
         float lane=(index-2)*2.4f;
-        float tx=cl(px+lane,-47f,47f);
-        float tz=cl(pz,-14f,36f);
+        float tx=Math.max(-47f,Math.min(47f,px+lane));
+        float tz=Math.max(-14f,Math.min(36f,pz));
         float d=(float)Math.hypot(tx-x,tz-z);
         if(d>7.0f){
           steer(tx,tz,dt,6.0f+wanted*1.4f);
