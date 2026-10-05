@@ -50,7 +50,7 @@ public final class GameView extends FrameLayout {
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
     private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>();
     private final Random rnd=new Random(77);
-    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0;
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0; int missionMilestone=0;
     boolean gas,brake,left,right,onFoot,flash; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
@@ -101,6 +101,8 @@ public final class GameView extends FrameLayout {
       if(wanted>0){wantedT-=dt;if(wantedT<=0&&Math.abs(spd)<2){wanted--;wantedT=3.2f;}}
       missionTime+=dt;
       combatCooldown=Math.max(0,combatCooldown-dt);
+      int milestone = missionTime>=120?4:(missionTime>=84?3:(missionTime>=52?2:(missionTime>=24?1:0)));
+      if(milestone>missionMilestone){ cash+=missionReward(milestone); missionMilestone=milestone; }
       int tier=difficultyTier();
       for(Enemy e:enemies){
         if(e.defeated) continue;
@@ -108,8 +110,9 @@ public final class GameView extends FrameLayout {
         float aggro=9f+tier*2.2f;
         if(dist<26f && dist>.05f){
           float len=dist;
-          e.x+=dx/len*(1.4f+e.type*.35f+tier*.25f)*dt;
-          e.z+=dz/len*(1.4f+e.type*.35f+tier*.25f)*dt;
+          float enemySpeed=1.4f+e.type*.35f+tier*.25f;
+          e.x+=dx/len*enemySpeed*dt;
+          e.z+=dz/len*enemySpeed*dt;
         }
         if(dist<2.6f && combatCooldown<=0){
           playerHealth-=6+tier*2;
@@ -142,6 +145,9 @@ public final class GameView extends FrameLayout {
       box(e.x-.32f*scale,1.02f*scale,e.z,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
       box(e.x+.32f*scale,1.02f*scale,e.z,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
       if(e.type>=2) box(e.x,2.48f*scale,e.z,.64f*scale,.12f*scale,.56f*scale,new float[]{.12f,.14f,.16f,1});
+      float hp=Math.max(0,e.hp)/(float)Math.max(1,e.maxHp);
+      box(e.x,2.72f*scale,e.z,1.0f*scale,.07f*scale,.08f*scale,new float[]{.07f,.07f,.08f,1});
+      box(e.x-.5f*scale+hp*.5f*scale,2.73f*scale,e.z,hp*1.0f*scale,.09f*scale,.09f*scale,new float[]{.30f,.72f,.35f,1});
     }
     void police(float X,float Z){car(X,Z,5);box(X,1.75f,Z,1,.15f,.62f,new float[]{.08f,.20f,.78f,1});}
     void player(){box(x,1.1f,z,1,1.9f,.65f,new float[]{.10f,.28f,.50f,1});box(x,2.25f,z,.55f,.58f,.55f,new float[]{.62f,.42f,.30f,1});box(x-.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});box(x+.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});}
@@ -173,6 +179,9 @@ public final class GameView extends FrameLayout {
       int tier=difficultyTier();
       return 300 + tier*180 + enemyType*120;
     }
+    int missionReward(int milestone){
+      switch(milestone){case 1:return 1500;case 2:return 2600;case 3:return 4200;case 4:return 6800;default:return 0;}
+    }
     void resolveCombat(){
       Enemy best=null;float bestD=5.5f;
       for(Enemy e:enemies){
@@ -181,9 +190,14 @@ public final class GameView extends FrameLayout {
         if(d<bestD){bestD=d;best=e;}
       }
       if(best==null){ wanted=Math.min(5,wanted+1); wantedT=5; return; }
-      best.defeated=true;
-      defeated++;
-      cash+=rewardFor(best.type);
+      best.hp--;
+      if(best.hp<=0){
+        best.defeated=true;
+        defeated++;
+        cash+=rewardFor(best.type);
+      } else {
+        cash+=45 + difficultyTier()*12;
+      }
       playerHealth=Math.min(100,playerHealth+5);
       // A clean win creates more pressure later rather than an immediate cash explosion.
       wanted=Math.min(5,Math.max(wanted,1));
@@ -206,7 +220,7 @@ public final class GameView extends FrameLayout {
     void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){flash=true;}
     void quality(int q){quality=Math.max(0,Math.min(2,q));}boolean buy(int i){int[]p=prices();if(i==vehicle)return true;if(cash<p[i])return false;cash-=p[i];vehicle=i;spd=0;return true;}
     static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
-    static final class Enemy{float x,z;int type;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;}}
+    static final class Enemy{float x,z;int type,hp,maxHp;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;}}
   }
 
   private static final class HUD extends View {
@@ -227,7 +241,7 @@ public final class GameView extends FrameLayout {
     void hud(Canvas c,int w,int h){
       round(c,18,16,w-18,94,0xC0091015,22);t(c,"ROAD LEGENDS",38,47,19,Color.WHITE);t(c,r.vname(),38,73,15,Color.LTGRAY);t(c,"₪ "+money(r.cash),w-190,48,22,Color.WHITE);t(c,Math.round(Math.abs(r.spd)*7.2f)+" קמ״ש",w-190,74,14,Color.LTGRAY);t(c,"קושי "+r.difficultyText(),w/2f-42,70,14,Color.LTGRAY);
       String want=r.wanted==0?"הכול רגוע":"חיפוש "+"★ ".repeat(Math.min(5,r.wanted));t(c,want,w/2f-42,49,15,r.wanted==0?Color.rgb(150,184,160):Color.rgb(255,214,74));
-      round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated()),38,184,12,Color.rgb(208,170,105));
+      round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));
       ctl(c,28,h-118,72,62,"◀");ctl(c,112,h-162,72,62,"▲");ctl(c,112,h-74,72,62,"▼");ctl(c,196,h-118,72,62,"▶");
       ctl(c,w-365,h-118,90,62,r.onFoot?"רכב":"יציאה");ctl(c,w-263,h-118,90,62,"מוסך");ctl(c,w-161,h-118,90,62,"מפה");
       sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-125,h-18,13,Color.LTGRAY);
