@@ -10,13 +10,32 @@ android {
         applicationId 'com.zygy.roadlegends'
         minSdk 28
         targetSdk 28
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
+    }
+
+    signingConfigs {
+        release {
+            def storeFilePath = System.getenv('ROADLEGENDS_STORE_FILE')
+            def storePasswordValue = System.getenv('ROADLEGENDS_STORE_PASSWORD')
+            def keyAliasValue = System.getenv('ROADLEGENDS_KEY_ALIAS')
+            def keyPasswordValue = System.getenv('ROADLEGENDS_KEY_PASSWORD')
+            if (storeFilePath && storePasswordValue && keyAliasValue && keyPasswordValue) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.release
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
