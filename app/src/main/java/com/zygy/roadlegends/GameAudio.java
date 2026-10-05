@@ -47,6 +47,7 @@ public final class GameAudio {
     public void playFootstep(boolean runningNow){ enqueue(footstep(runningNow)); }
     public void playShout(){ enqueue(shout()); }
     public void playDoor(){ enqueue(door()); }
+    public void playImpact(){ enqueue(impact()); }
 
     private void enqueue(short[] pcm){
         while(queue.size()>4) queue.poll();
@@ -91,6 +92,20 @@ public final class GameAudio {
             float f=390f+110f*(float)Math.sin(2*Math.PI*t*2.1f);
             float v=(float)Math.sin(2*Math.PI*f*i/RATE)*env;
             out[i]=(short)(v*9000);
+        }
+        return out;
+    }
+
+
+    private short[] impact(){
+        int n=(int)(RATE*.11);
+        short[] out=new short[n];
+        for(int i=0;i<n;i++){
+            float t=i/(float)n;
+            float env=(1f-t)*(1f-t);
+            float low=(float)Math.sin(2*Math.PI*72*i/RATE);
+            float click=(float)Math.sin(2*Math.PI*310*i/RATE);
+            out[i]=(short)((low*.70f+click*.30f)*env*11000);
         }
         return out;
     }
