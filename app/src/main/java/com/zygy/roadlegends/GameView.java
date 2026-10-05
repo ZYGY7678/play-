@@ -52,7 +52,7 @@ public final class GameView extends FrameLayout {
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
     private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>(); private final List<PoliceUnit> policeUnits=new ArrayList<>(); private final GameAudio audio=new GameAudio();
     private final Random rnd=new Random(77); private final Random eventRnd=new Random(20261005L);
-    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0,footstepTimer=0,shotCooldown=0,cameraShake=0; int missionMilestone=0;
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0,footstepTimer=0,shotCooldown=0,cameraShake=0,forwardHold=0,footSpeed=0; int missionMilestone=0;
     boolean gas,brake,left,right,onFoot,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
@@ -121,70 +121,68 @@ public final class GameView extends FrameLayout {
       if(onFoot)player();else car(x,z,vehicle,yaw);
     }
     void update(float dt){
-      float tar=gas?(15+vehicle*1.2f):0;if(brake)tar=-7;
-      spd+=(tar-spd)*Math.min(1,dt*4);if(!gas&&!brake)spd*=Math.pow(.78,dt*10);
-      yaw+=((right?1:0)-(left?1:0))*(.55+Math.abs(spd)*.018)*dt;
-      float k=onFoot?.35f:1; x+=Math.sin(yaw)*spd*dt*k;z+=Math.cos(yaw)*spd*dt*k;x=cl(x,-106,106);z=cl(z,-110,110);
+      if(onFoot){
+        if(gas)forwardHold+=dt;else forwardHold=0;
+        boolean running=gas&&forwardHold>=.55f;
+        float target=gas?(running?4.8f:2.1f):0;
+        if(brake){target=-1.65f;forwardHold=0;}
+        float accel=(Math.abs(target)>.01f)?(running?5.2f:6.8f):8.5f;
+        footSpeed+=(target-footSpeed)*Math.min(1,dt*accel);
+        if(Math.abs(footSpeed)<.025f&&!gas&&!brake)footSpeed=0;
+        spd=footSpeed;
+      }else{
+        forwardHold=0;footSpeed=0;
+        float maxSpeed=vehicleMaxSpeed();
+        float target=gas?maxSpeed:0;
+        if(brake)target=-maxSpeed*.34f;
+        float accel=gas?vehicleAcceleration():8.5f;
+        spd+=(target-spd)*Math.min(1,dt*accel);
+        if(!gas&&!brake)spd*=Math.pow(.11,dt);
+        if(Math.abs(spd)<.035f&&!gas&&!brake)spd=0;
+        if(Math.abs(spd)>maxSpeed)spd=Math.copySign(maxSpeed,spd);
+      }
+      float steerRate=onFoot?.92f:(.48f+Math.min(1.05f,Math.abs(spd)*.035f));
+      yaw+=((right?1:0)-(left?1:0))*steerRate*dt;
+      x+=Math.sin(yaw)*spd*dt;z+=Math.cos(yaw)*spd*dt;
+      x=cl(x,-106,106);z=cl(z,-110,110);
+
       if(wanted>0){wantedT-=dt;if(wantedT<=0&&Math.abs(spd)<2){wanted--;wantedT=3.2f;}}
-      missionTime+=dt;
-      combatCooldown=Math.max(0,combatCooldown-dt);
-      int milestone = missionTime>=120?4:(missionTime>=84?3:(missionTime>=52?2:(missionTime>=24?1:0)));
-      if(milestone>missionMilestone){ cash+=missionReward(milestone); missionMilestone=milestone; }
+      missionTime+=dt;combatCooldown=Math.max(0,combatCooldown-dt);
+      int milestone=missionTime>=120?4:(missionTime>=84?3:(missionTime>=52?2:(missionTime>=24?1:0)));
+      if(milestone>missionMilestone){cash+=missionReward(milestone);missionMilestone=milestone;}
       int tier=difficultyTier();
       for(Enemy e:enemies){
-        if(e.defeated) continue;
+        if(e.defeated)continue;
         e.reactionTimer=Math.max(0,e.reactionTimer-dt);
+        e.recoveryTimer=Math.max(0,e.recoveryTimer-dt);
         float dx=x-e.x,dz=z-e.z,dist=(float)Math.hypot(dx,dz);
-
         NpcDirector.Decision decision=NpcDirector.decide(wanted,dist,tier,e.type);
         e.state=decision.state.ordinal();
+        float reactionFactor=e.recoveryTimer>0?(0.38f+0.62f*(1f-Math.min(1f,e.recoveryTimer/1.4f))):1f;
+        float npcSpeed=decision.speed*reactionFactor;
         if(decision.state==NpcDirector.State.CALM){
-          e.x+=Math.sin(e.phase+time)*decision.speed*dt;
-          e.z+=Math.cos(e.phase+time)*decision.speed*dt;
-          continue;
+          e.x+=Math.sin(e.phase+time)*npcSpeed*dt;e.z+=Math.cos(e.phase+time)*npcSpeed*dt;continue;
         }
         if(decision.state==NpcDirector.State.ALERT){
-          if(dist<20f && dist>.05f){
-            float len=dist;
-            e.x-=dx/len*decision.speed*dt;
-            e.z-=dz/len*decision.speed*dt;
-          }
-        } else if(dist<30f && dist>.05f) {
-          float len=dist;
-          e.x+=dx/len*decision.speed*dt;
-          e.z+=dz/len*decision.speed*dt;
+          if(dist<20f&&dist>.05f){float len=dist;e.x-=dx/len*npcSpeed*dt;e.z-=dz/len*npcSpeed*dt;}
+        }else if(dist<30f&&dist>.05f){
+          float len=dist;e.x+=dx/len*npcSpeed*dt;e.z+=dz/len*npcSpeed*dt;
         }
-        if(decision.state==NpcDirector.State.CHASE && dist<2.6f && combatCooldown<=0){
-          playerHealth-=6+tier*2;
-          combatCooldown=.85f;
-          if(playerHealth<=0){
-            playerHealth=100;
-            cash=Math.max(0,cash-450-tier*120);
-            x=0;z=4;spd=0;wanted=0;
-          }
+        if(decision.state==NpcDirector.State.CHASE&&dist<2.6f&&combatCooldown<=0){
+          playerHealth-=6+tier*2;combatCooldown=.85f;
+          if(playerHealth<=0){playerHealth=100;cash=Math.max(0,cash-450-tier*120);x=0;z=4;spd=0;wanted=0;}
         }
       }
       crimeCooldown=Math.max(0,crimeCooldown-dt);
-      if(robberyRunning){
-        robberyTimer-=dt;
-        if(robberyTimer<=0) finishRobbery();
-      }
-      time+=dt*.18;if(time>=24)time-=24;
-      for(Obj o:traffic){
-        float dir=(o.rot<1)?1f:-1f;
-        o.z+=dir*o.h*dt;
-        if(o.z>40)o.z=-18;
-        if(o.z<-19)o.z=40;
-      }
-      shotCooldown=Math.max(0,shotCooldown-dt); cameraShake=Math.max(0,cameraShake-dt*4.5f);
-      if(onFoot && Math.abs(spd)>.7f){
+      if(robberyRunning){robberyTimer-=dt;if(robberyTimer<=0)finishRobbery();}
+      time+=dt*.18f;if(time>=24)time-=24;
+      for(Obj o:traffic){float dir=(o.rot<1)?1f:-1f;o.z+=dir*o.h*dt;if(o.z>40)o.z=-18;if(o.z<-19)o.z=40;}
+      shotCooldown=Math.max(0,shotCooldown-dt);cameraShake=Math.max(0,cameraShake-dt*4.5f);
+      if(onFoot&&Math.abs(spd)>.45f){
         footstepTimer-=dt;
-        if(footstepTimer<=0){audio.playFootstep(Math.abs(spd)>2.0f);footstepTimer=Math.abs(spd)>2.0f?.24f:.40f;}
-      } else footstepTimer=0;
-      for(PoliceUnit p:policeUnits){
-        p.update(dt,x,z,yaw,wanted,difficultyTier());
-        if(p.doorEvent){p.doorEvent=false;audio.playDoor();audio.playShout();}
-      }
+        if(footstepTimer<=0){audio.playFootstep(Math.abs(spd)>3.0f);footstepTimer=Math.abs(spd)>3.0f?.23f:.40f;}
+      }else footstepTimer=0;
+      for(PoliceUnit p:policeUnits){p.update(dt,x,z,yaw,wanted,difficultyTier());if(p.doorEvent){p.doorEvent=false;audio.playDoor();audio.playShout();}}
     }
     void car(float X,float Z,int t){car(X,Z,t,0);}
     void car(float X,float Z,int t,float rot){
@@ -342,7 +340,7 @@ public final class GameView extends FrameLayout {
       for(Enemy e:enemies) if(!e.defeated && Math.hypot(e.x-x,e.z-z)<5.5f) return true;
       return false;
     }
-    void resolveCombat(){
+    float vehicleMaxSpeed(){return new float[]{13.5f,17.5f,19.0f,11.5f,15.5f,14.0f,9.5f,20.5f}[vehicle];}\n    float vehicleAcceleration(){return new float[]{5.2f,4.4f,4.1f,3.0f,5.0f,3.7f,3.4f,5.6f}[vehicle];}\n    float speedKmh(){return Math.abs(spd)*6.2f;}\n    boolean running(){return onFoot&&gas&&forwardHold>=.55f&&spd>.7f;}\n    String movementMode(){return onFoot?(running()?"ריצה":"הליכה"):"נהיגה";}\n    void resolveCombat(){
       Enemy best=null;float bestD=5.5f;
       for(Enemy e:enemies){
         if(e.defeated) continue;
@@ -352,7 +350,7 @@ public final class GameView extends FrameLayout {
       if(best==null){commitCrimeEvent();return;}
       best.hp--;
       best.reaction=1+eventRnd.nextInt(4);
-      best.reactionTimer=.42f+eventRnd.nextFloat()*.30f;
+      best.reactionTimer=.55f+eventRnd.nextFloat()*.25f;\n      best.recoveryTimer=1.05f+eventRnd.nextFloat()*.45f;
       cameraShake=Math.max(cameraShake,.34f);
       audio.playImpact();
       if(best.hp<=0){best.defeated=true;defeated++;cash+=rewardFor(best.type);}
@@ -442,16 +440,16 @@ public final class GameView extends FrameLayout {
       float wrap(float a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
     }
     static final class Obj{float x,z,w,h,rot;int kind;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;this.rot=0;this.kind=0;}}
-    static final class Enemy{float x,z;int type,hp,maxHp,state=0,reaction=0;float phase,reactionTimer=0;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
+    static final class Enemy{float x,z;int type,hp,maxHp,state=0,reaction=0;float phase,reactionTimer=0,recoveryTimer=0;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
   }
 
   private static final class HUD extends View {
-    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final R r;int mode=0;boolean intro=true;
+    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final R r;int mode=0;boolean intro=true;int movePointer=-1,moveControl=-1,actionPointer=-1,actionControl=-1;
     HUD(Context c,R r){super(c);this.r=r;setFocusable(true);}
     protected void onDraw(Canvas c){
       int w=getWidth(),h=getHeight();
       if(mode==0){home(c,w,h);return;}
-      hud(c,w,h);if(mode==2)garage(c,w,h);if(mode==3)map(c,w,h);if(mode==4)settings(c,w,h);if(intro)intro(c,w,h);postInvalidateDelayed(150);
+      hud(c,w,h);if(mode==2)garage(c,w,h);if(mode==3)map(c,w,h);if(mode==4)settings(c,w,h);if(intro)intro(c,w,h);postInvalidateDelayed(mode==1?50:150);
     }
     void home(Canvas c,int w,int h){
       p.setShader(new LinearGradient(0,0,w,h,Color.rgb(8,13,18),Color.rgb(38,54,67),Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
@@ -459,21 +457,22 @@ public final class GameView extends FrameLayout {
       round(c,w*.56f,h*.31f,w*.92f,h*.70f,0x5530424F,28);t(c,"CITY  //  HARBOR  //  WILDS",w*.59f,h*.42f,14,Color.rgb(224,188,76));t(c,"עולם חי. נהיגה. משימות.",w*.59f,h*.50f,24,Color.WHITE);t(c,"תאורת יום/לילה • מפה • מוסך • אירועים",w*.59f,h*.55f,14,Color.LTGRAY);
       chip(c,48,h-135,"₪ "+money(r.cash),"יתרה");chip(c,190,h-135,"FPS "+Math.round(r.fps),"ביצועים");chip(c,332,h-135,"Android 9+","תאימות");
       primary(c,w-292,h-178,235,58,"התחל משחק");secondary(c,w-292,h-108,108,48,"מוסך");secondary(c,w-167,h-108,108,48,"הגדרות");t(c,"עברית RTL • שליטה ברורה • שמירה והתקדמות",50,h-28,14,Color.LTGRAY);t(c,"כלכלה: משימות → תגמולים → רכבים → שדרוגים",50,h-52,13,Color.rgb(205,184,126));
+      center(c,"נוצר על ידי מנוטפר עצוב ומוח דיגיטלי מפורום מתמחים טופ",w/2f,h-21,12,Color.LTGRAY);
     }
     void hud(Canvas c,int w,int h){
-      round(c,18,16,w-18,94,0xC0091015,22);t(c,"ROAD LEGENDS",38,47,19,Color.WHITE);t(c,r.vname(),38,73,15,Color.LTGRAY);t(c,"₪ "+money(r.cash),w-190,48,22,Color.WHITE);t(c,Math.round(Math.abs(r.spd)*7.2f)+" קמ״ש",w-190,74,14,Color.LTGRAY);t(c,"קושי "+r.difficultyText(),w/2f-42,70,14,Color.LTGRAY);
+      round(c,18,16,w-18,94,0xC0091015,22);t(c,"ROAD LEGENDS",38,47,19,Color.WHITE);t(c,r.vname(),38,73,15,Color.LTGRAY);t(c,"₪ "+money(r.cash),w-190,48,22,Color.WHITE);t(c,r.movementMode()+" • "+Math.round(r.speedKmh())+" קמ״ש",w-250,74,14,Color.LTGRAY);t(c,"קושי "+r.difficultyText(),w/2f-42,70,14,Color.LTGRAY);
       String want=r.wanted==0?"הכול רגוע":"חיפוש "+"★ ".repeat(Math.min(5,r.wanted));t(c,want,w/2f-42,49,15,r.wanted==0?Color.rgb(150,184,160):Color.rgb(255,214,74));
       round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));if(r.robberyRunning())t(c,"שוד וירטואלי פעיל • תגמול ₪ "+money(r.robberyReward()),38,202,12,Color.rgb(244,214,106));
-      ctl(c,28,h-118,72,62,"◀");ctl(c,112,h-162,72,62,"▲");ctl(c,112,h-74,72,62,"▼");ctl(c,196,h-118,72,62,"▶");
-      ctl(c,w-365,h-118,90,62,r.onFoot?"רכב":"יציאה");ctl(c,w-263,h-118,90,62,"מוסך");ctl(c,w-161,h-118,90,62,"מפה");
-      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,r.robberyRunning()?"מתבצע":"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"פעילות אסורה מעלה את רמת החיפוש • ▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-205,h-18,12,Color.LTGRAY);
+      ctl(c,24,h-124,82,68,"◀",r.left);ctl(c,116,h-172,82,68,"▲",r.gas);ctl(c,116,h-78,82,68,"▼",r.brake);ctl(c,208,h-124,82,68,"▶",r.right);
+      ctl(c,w-375,h-124,92,68,r.onFoot?"רכב":"יציאה",false);ctl(c,w-270,h-124,92,68,"מוסך",false);ctl(c,w-165,h-124,92,68,"מפה",false);
+      sml(c,w-375,h-48,92,42,"שחקן");sml(c,w-270,h-48,92,42,"מצלמה");sml(c,w-165,h-48,92,42,r.robberyRunning()?"מתבצע":"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-43,13,Color.LTGRAY);t(c,"החזק ▲ לתנועה רציפה • אחרי חצי שנייה מתחילה תאוצת ריצה • ◀ ▶ היגוי",w/2f-240,h-18,12,Color.LTGRAY);
     }
     void intro(Canvas c,int w,int h){fill(c,0x77000000);c.drawRect(0,0,w,h,p);round(c,w/2f-265,h/2f-96,w/2f+265,h/2f+96,0xF01A222A,28);t(c,"ברוכים הבאים ל־ROAD LEGENDS",w/2f-212,h/2f-38,23,Color.WHITE);t(c,"תלת־ממד • עיר • נמל • שטח • שדה תעופה",w/2f-190,h/2f-5,15,Color.LTGRAY);t(c,"התחל במשימת הפתיחה, פגוש יריבים והתקדם לרכבים ולמוסך",w/2f-220,h/2f+25,15,Color.LTGRAY);primary(c,w/2f-105,h/2f+46,210,50,"הבנתי");}
     void garage(Canvas c,int w,int h){fill(c,0xA8000000);c.drawRect(0,0,w,h,p);round(c,26,24,w-26,h-24,0xF019222A,28);t(c,"המוסך שלי",52,68,30,Color.WHITE);t(c,"קנה והחלף כלי תחבורה",52,95,14,Color.LTGRAY);String[] n={"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"};String[] s={"ספורט","מרוץ","שטח","משאית","אופנוע","ממוגן","כלי שיט","מסוק"};float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float x=50+col*cw,y=118+row*92;round(c,x,y,x+cw-14,y+76,i==r.vehicle?0xFF314B60:0xFF202830,16);t(c,n[i],x+12,y+27,14,Color.WHITE);t(c,s[i],x+12,y+49,12,Color.LTGRAY);int q=r.prices()[i];t(c,q==0?"שלך":"₪ "+money(q),x+12,y+68,12,Color.rgb(244,214,106));}primary(c,w-170,h-78,120,48,"חזרה");}
     void map(Canvas c,int w,int h){fill(c,0xEE11181E);c.drawRoundRect(new RectF(28,25,w-28,h-25),28,28,p);t(c,"מפת העולם",54,70,30,Color.WHITE);round(c,56,94,w-56,h-95,Color.rgb(56,79,60),20);fill(c,Color.rgb(42,53,58));c.drawRect(56,h/2-24,w-56,h/2+24,p);fill(c,Color.rgb(36,105,138));c.drawRect(56,h-215,w-56,h-95,p);fill(c,Color.rgb(83,90,93));c.drawRect(w-280,110,w-86,h-252,p);mark(c,94,h/2,Color.WHITE,"אתה");mark(c,w-182,156,Color.rgb(245,185,70),"שדה");mark(c,w/2,h-155,Color.rgb(88,202,231),"נמל");primary(c,w-170,h-78,120,48,"חזרה");}
     void settings(Canvas c,int w,int h){fill(c,0xEE151C22);c.drawRoundRect(new RectF(58,35,w-58,h-35),28,28,p);t(c,"הגדרות",88,84,30,Color.WHITE);t(c,"איכות גרפיקה",88,130,16,Color.LTGRAY);secondary(c,88,148,108,46,"ביצועים");secondary(c,208,148,108,46,"גבוהה");secondary(c,328,148,108,46,"אולטרה");t(c,"מצלמה: "+(r.camera==0?"רחוקה":r.camera==1?"קרובה":"תא נהג"),88,238,17,Color.WHITE);t(c,"Android 9 ומעלה • טעינת עולם חכמה • FPS יציב",88,276,14,Color.LTGRAY);primary(c,w-190,h-90,130,50,"חזרה");}
     void chip(Canvas c,float x,float y,String a,String b){round(c,x,y,x+128,y+62,0x5526323A,18);t(c,a,x+13,y+27,17,Color.WHITE);t(c,b,x+13,y+49,12,Color.LTGRAY);}
-    void ctl(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,18);center(c,s,x+w/2,y+h/2+8,23,Color.WHITE);}
+    void ctl(Canvas c,float x,float y,float w,float h,String s){ctl(c,x,y,w,h,s,false);}\n    void ctl(Canvas c,float x,float y,float w,float h,String s,boolean pressed){round(c,x,y,x+w,y+h,pressed?0xF0D9AE43:0xD01A242D,18);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(pressed?Color.WHITE:0x665F7180);c.drawRoundRect(new RectF(x+1,y+1,x+w-1,y+h-1),17,17,p);p.setStyle(Paint.Style.FILL);center(c,s,x+w/2,y+h/2+8,23,pressed?Color.rgb(18,20,22):Color.WHITE);}
     void sml(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,15);t(c,s,x+12,y+h/2+6,13,Color.WHITE);}
     void primary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xFFE3B84B,17);center(c,s,x+w/2,y+h/2+6,16,Color.rgb(18,20,22));}
     void secondary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,17);center(c,s,x+w/2,y+h/2+6,14,Color.WHITE);}
@@ -484,15 +483,87 @@ public final class GameView extends FrameLayout {
     void center(Canvas c,String s,float x,float y,float sz,int col){p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(sz);p.setColor(col);c.drawText(s,x-p.measureText(s)/2,y,p);}
     String money(int n){return String.format(Locale.US,"%,d",n);}
     public boolean onTouchEvent(MotionEvent e){
-      float x=e.getX(),y=e.getY();int w=getWidth(),h=getHeight();boolean up=e.getAction()==MotionEvent.ACTION_UP;
-      if(e.getAction()!=MotionEvent.ACTION_DOWN&& !up)return true;
-      if(mode==0&&up){if(x>w-305&&y>h-205&&y<h-110){mode=1;intro=true;}else if(x>w-305&&y>h-115){mode=2;}else if(x>w-175&&y>h-115){mode=4;}invalidate();return true;}
-      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.trigger();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
-      if(mode==2&&up){if(y>h-100){mode=1;invalidate();return true;}float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float bx=50+col*cw,by=118+row*92;if(x>=bx&&x<=bx+cw-14&&y>=by&&y<=by+76){r.buy(i);invalidate();return true;}}}
-      if((mode==3||mode==4)&&up&&y>h-110){mode=1;invalidate();return true;}
-      if(mode==4&&up&&y>=145&&y<=205){r.quality(Math.max(0,Math.min(2,(int)((x-88)/120))));invalidate();return true;}return true;
+      final int action=e.getActionMasked(),index=e.getActionIndex();
+      final float x=e.getX(index),y=e.getY(index);
+      final int w=getWidth(),h=getHeight(),pid=e.getPointerId(index);
+
+      if(mode==0){
+        if(action==MotionEvent.ACTION_UP){
+          if(x>w-305&&y>h-205&&y<h-110){mode=1;intro=true;}
+          else if(x>w-305&&y>h-115&&x<w-185){mode=2;}
+          else if(x>w-175&&y>h-115){mode=4;}
+          invalidate();
+        }
+        return true;
+      }
+      if(mode==1&&intro){
+        if(action==MotionEvent.ACTION_UP&&y>h/2){intro=false;invalidate();}
+        return true;
+      }
+      if(mode==1){
+        if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
+          int control=buttonAt(x,y,w,h);
+          if(control>=0&&control<=3){
+            if(movePointer==-1){movePointer=pid;moveControl=control;applyMoveControl(control,true);invalidate();}
+            return true;
+          }
+          if(control>=4){actionPointer=pid;actionControl=control;invalidate();return true;}
+        }else if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){
+          if(pid==movePointer){applyMoveControl(moveControl,false);movePointer=-1;moveControl=-1;invalidate();}
+          if(pid==actionPointer){
+            int pressedControl=actionControl;actionPointer=-1;actionControl=-1;
+            if(buttonAt(x,y,w,h)==pressedControl)activateButton(pressedControl);
+            invalidate();
+          }
+          return true;
+        }else if(action==MotionEvent.ACTION_CANCEL){
+          stop();movePointer=-1;moveControl=-1;actionPointer=-1;actionControl=-1;invalidate();return true;
+        }
+        return true;
+      }
+      if(action!=MotionEvent.ACTION_UP)return true;
+      if(mode==2){
+        if(y>h-100){mode=1;invalidate();return true;}
+        float cw=(w-112)/4f;
+        for(int i=0;i<8;i++){
+          int col=i%4,row=i/4;float bx=50+col*cw,by=118+row*92;
+          if(x>=bx&&x<=bx+cw-14&&y>=by&&y<=by+76){r.buy(i);invalidate();return true;}
+        }
+      }
+      if((mode==3||mode==4)&&y>h-110){mode=1;invalidate();return true;}
+      if(mode==4&&y>=145&&y<=205){r.quality(Math.max(0,Math.min(2,(int)((x-88)/120))));invalidate();return true;}
+      return true;
     }
-    void held(float x,float y,int h){if(x<105)r.setLeft(true);else if(x>185&&x<280)r.setRight(true);else if(x>=100&&x<=185&&y<h-108)r.setGas(true);else if(x>=100&&x<=185)r.setBrake(true);}
+
+    int buttonAt(float x,float y,int w,int h){
+      if(x>=24&&x<=106&&y>=h-124&&y<=h-56)return 0;
+      if(x>=116&&x<=198&&y>=h-172&&y<=h-104)return 1;
+      if(x>=116&&x<=198&&y>=h-78&&y<=h-10)return 2;
+      if(x>=208&&x<=290&&y>=h-124&&y<=h-56)return 3;
+      if(x>=w-375&&x<=w-283&&y>=h-124&&y<=h-56)return 4;
+      if(x>=w-270&&x<=w-178&&y>=h-124&&y<=h-56)return 5;
+      if(x>=w-165&&x<=w-73&&y>=h-124&&y<=h-56)return 6;
+      if(x>=w-375&&x<=w-283&&y>=h-48&&y<=h-6)return 4;
+      if(x>=w-270&&x<=w-178&&y>=h-48&&y<=h-6)return 7;
+      if(x>=w-165&&x<=w-73&&y>=h-48&&y<=h-6)return 8;
+      return -1;
+    }
+
+    void applyMoveControl(int control,boolean down){
+      if(control==0)r.setLeft(down);
+      else if(control==1)r.setGas(down);
+      else if(control==2)r.setBrake(down);
+      else if(control==3)r.setRight(down);
+    }
+
+    void activateButton(int control){
+      if(control==4)r.enterExit();
+      else if(control==5)mode=2;
+      else if(control==6)mode=3;
+      else if(control==7)r.toggleCamera();
+      else if(control==8)r.trigger();
+    }
+
     void stop(){r.setLeft(false);r.setRight(false);r.setGas(false);r.setBrake(false);}
     protected void onDetachedFromWindow(){stop();super.onDetachedFromWindow();}
   }
