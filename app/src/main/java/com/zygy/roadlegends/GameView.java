@@ -2,7 +2,6 @@ package com.zygy.roadlegends;
 
 import android.content.Context;
 import android.graphics.*;
-import android.graphics.drawable.ColorDrawable;
 import android.view.MotionEvent;
 import android.view.View;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ public class GameView extends View {
             "Trail Bike", "Armor Van", "Speed Boat", "Sea Runner", "Heli Scout"
     };
     private static final int[] PRICES = {0, 18000, 24000, 32000, 8500, 65000, 22000, 27000, 120000};
-    private static final String[] GEAR = {"אקדח", "רובה", "RPG", "רימון", "מצנח", "מפתח גנוב"};
+    private static final String[] GEAR = {"ערכת תיקון", "פנס שטח", "מצנח", "מפתחות רכב", "רדיו", "מצלמה"};
 
     public GameView(Context c) {
         super(c);
@@ -275,7 +274,7 @@ public class GameView extends View {
         text(c, "ROAD LEGENDS", 28, 48, 27, Color.WHITE);
         text(c, "₪" + cash, w - 160, 45, 23, Color.WHITE);
         if (wanted > 0) {
-            text(c, "חיפוש " + "★".repeat(Math.min(5, wanted)), w - 160, 68, 18, Color.rgb(255, 215, 80));
+            text(c, "חיפוש " + stars(Math.min(5, wanted)), w - 160, 68, 18, Color.rgb(255, 215, 80));
         } else {
             text(c, "הכל שקט", w - 160, 68, 17, Color.LTGRAY);
         }
@@ -320,7 +319,7 @@ public class GameView extends View {
         for (int i = 0; i < GEAR.length; i++) {
             float y = 180 + i * 58;
             button(c, 140, y, 180, 45, GEAR[i]);
-            text(c, i == 4 ? "לצניחה/מילוט" : "פריט משחק", 350, y + 30, 17, Color.LTGRAY);
+            text(c, i == 2 ? "לצניחה" : "ציוד למשחק", 350, y + 30, 17, Color.LTGRAY);
         }
         button(c, w - 210, h - 135, 130, 58, "סגור");
     }
@@ -359,6 +358,12 @@ public class GameView extends View {
         c.drawRoundRect(new RectF(x,y,x+bw,y+bh), 16, 16, p);
         p.setStyle(Paint.Style.FILL);
         textCentered(c, label, x + bw/2, y + bh/2 + 7, 18, Color.WHITE);
+    }
+
+    private String stars(int count) {
+        StringBuilder s = new StringBuilder();
+        for (int i = 0; i < count; i++) s.append("★");
+        return s.toString();
     }
 
     private void text(Canvas c, String s, float x, float y, float size, int color) {
