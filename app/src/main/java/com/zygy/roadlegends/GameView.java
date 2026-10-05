@@ -340,7 +340,12 @@ public final class GameView extends FrameLayout {
       for(Enemy e:enemies) if(!e.defeated && Math.hypot(e.x-x,e.z-z)<5.5f) return true;
       return false;
     }
-    float vehicleMaxSpeed(){return new float[]{13.5f,17.5f,19.0f,11.5f,15.5f,14.0f,9.5f,20.5f}[vehicle];}\n    float vehicleAcceleration(){return new float[]{5.2f,4.4f,4.1f,3.0f,5.0f,3.7f,3.4f,5.6f}[vehicle];}\n    float speedKmh(){return Math.abs(spd)*6.2f;}\n    boolean running(){return onFoot&&gas&&forwardHold>=.55f&&spd>.7f;}\n    String movementMode(){return onFoot?(running()?"ריצה":"הליכה"):"נהיגה";}\n    void resolveCombat(){
+    float vehicleMaxSpeed(){return new float[]{13.5f,17.5f,19.0f,11.5f,15.5f,14.0f,9.5f,20.5f}[vehicle];}
+    float vehicleAcceleration(){return new float[]{5.2f,4.4f,4.1f,3.0f,5.0f,3.7f,3.4f,5.6f}[vehicle];}
+    float speedKmh(){return Math.abs(spd)*6.2f;}
+    boolean running(){return onFoot&&gas&&forwardHold>=.55f&&spd>.7f;}
+    String movementMode(){return onFoot?(running()?"ריצה":"הליכה"):"נהיגה";}
+    void resolveCombat(){
       Enemy best=null;float bestD=5.5f;
       for(Enemy e:enemies){
         if(e.defeated) continue;
@@ -350,7 +355,8 @@ public final class GameView extends FrameLayout {
       if(best==null){commitCrimeEvent();return;}
       best.hp--;
       best.reaction=1+eventRnd.nextInt(4);
-      best.reactionTimer=.55f+eventRnd.nextFloat()*.25f;\n      best.recoveryTimer=1.05f+eventRnd.nextFloat()*.45f;
+      best.reactionTimer=.55f+eventRnd.nextFloat()*.25f;
+      best.recoveryTimer=1.05f+eventRnd.nextFloat()*.45f;
       cameraShake=Math.max(cameraShake,.34f);
       audio.playImpact();
       if(best.hp<=0){best.defeated=true;defeated++;cash+=rewardFor(best.type);}
@@ -472,7 +478,8 @@ public final class GameView extends FrameLayout {
     void map(Canvas c,int w,int h){fill(c,0xEE11181E);c.drawRoundRect(new RectF(28,25,w-28,h-25),28,28,p);t(c,"מפת העולם",54,70,30,Color.WHITE);round(c,56,94,w-56,h-95,Color.rgb(56,79,60),20);fill(c,Color.rgb(42,53,58));c.drawRect(56,h/2-24,w-56,h/2+24,p);fill(c,Color.rgb(36,105,138));c.drawRect(56,h-215,w-56,h-95,p);fill(c,Color.rgb(83,90,93));c.drawRect(w-280,110,w-86,h-252,p);mark(c,94,h/2,Color.WHITE,"אתה");mark(c,w-182,156,Color.rgb(245,185,70),"שדה");mark(c,w/2,h-155,Color.rgb(88,202,231),"נמל");primary(c,w-170,h-78,120,48,"חזרה");}
     void settings(Canvas c,int w,int h){fill(c,0xEE151C22);c.drawRoundRect(new RectF(58,35,w-58,h-35),28,28,p);t(c,"הגדרות",88,84,30,Color.WHITE);t(c,"איכות גרפיקה",88,130,16,Color.LTGRAY);secondary(c,88,148,108,46,"ביצועים");secondary(c,208,148,108,46,"גבוהה");secondary(c,328,148,108,46,"אולטרה");t(c,"מצלמה: "+(r.camera==0?"רחוקה":r.camera==1?"קרובה":"תא נהג"),88,238,17,Color.WHITE);t(c,"Android 9 ומעלה • טעינת עולם חכמה • FPS יציב",88,276,14,Color.LTGRAY);primary(c,w-190,h-90,130,50,"חזרה");}
     void chip(Canvas c,float x,float y,String a,String b){round(c,x,y,x+128,y+62,0x5526323A,18);t(c,a,x+13,y+27,17,Color.WHITE);t(c,b,x+13,y+49,12,Color.LTGRAY);}
-    void ctl(Canvas c,float x,float y,float w,float h,String s){ctl(c,x,y,w,h,s,false);}\n    void ctl(Canvas c,float x,float y,float w,float h,String s,boolean pressed){round(c,x,y,x+w,y+h,pressed?0xF0D9AE43:0xD01A242D,18);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(pressed?Color.WHITE:0x665F7180);c.drawRoundRect(new RectF(x+1,y+1,x+w-1,y+h-1),17,17,p);p.setStyle(Paint.Style.FILL);center(c,s,x+w/2,y+h/2+8,23,pressed?Color.rgb(18,20,22):Color.WHITE);}
+    void ctl(Canvas c,float x,float y,float w,float h,String s){ctl(c,x,y,w,h,s,false);}
+    void ctl(Canvas c,float x,float y,float w,float h,String s,boolean pressed){round(c,x,y,x+w,y+h,pressed?0xF0D9AE43:0xD01A242D,18);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(pressed?Color.WHITE:0x665F7180);c.drawRoundRect(new RectF(x+1,y+1,x+w-1,y+h-1),17,17,p);p.setStyle(Paint.Style.FILL);center(c,s,x+w/2,y+h/2+8,23,pressed?Color.rgb(18,20,22):Color.WHITE);}
     void sml(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,15);t(c,s,x+12,y+h/2+6,13,Color.WHITE);}
     void primary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xFFE3B84B,17);center(c,s,x+w/2,y+h/2+6,16,Color.rgb(18,20,22));}
     void secondary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,17);center(c,s,x+w/2,y+h/2+6,14,Color.WHITE);}
