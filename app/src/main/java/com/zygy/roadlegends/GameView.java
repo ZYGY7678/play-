@@ -48,7 +48,7 @@ public final class GameView extends FrameLayout {
     private FloatBuffer cube;
     private int pr,ap,an,um,uc,ul;
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
-    private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(),enemies=new ArrayList<>();
+    private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>();
     private final Random rnd=new Random(77);
     float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0;
     boolean gas,brake,left,right,onFoot,flash; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0;
@@ -57,6 +57,7 @@ public final class GameView extends FrameLayout {
     R(){
       for(int i=0;i<42;i++)objs.add(new Obj(-95+rnd.nextFloat()*190,-40+rnd.nextFloat()*83,5+rnd.nextFloat()*4,8+rnd.nextFloat()*18));
       for(int i=0;i<18;i++)traffic.add(new Obj(-82+rnd.nextFloat()*164,-28+rnd.nextFloat()*58,3.8f,6));
+      for(int i=0;i<10;i++)enemies.add(new Enemy(-70+(i%5)*35,18+(i/5)*17,i%4));
     }
     public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig c){
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);
