@@ -4,14 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.zygy.wallmix"
+    namespace = "com.zygy.roadlegends"
     compileSdk = 35
-
     defaultConfig {
-        applicationId = "com.zygy.wallmix"
-        minSdk = 28
+        applicationId = "com.zygy.roadlegends"
+        minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "2.0"
     }
 }
