@@ -108,36 +108,31 @@ public final class GameView extends FrameLayout {
         if(e.defeated) continue;
         float dx=x-e.x,dz=z-e.z,dist=(float)Math.hypot(dx,dz);
 
-        if(wanted<=0){
-          e.state=0; // CALM
-          e.x+=Math.sin(e.phase+time)*.18f*dt;
-          e.z+=Math.cos(e.phase+time)*.18f*dt;
+        NpcDirector.Decision decision=NpcDirector.decide(wanted,dist,tier,e.type);
+        e.state=decision.state.ordinal();
+        if(decision.state==NpcDirector.State.CALM){
+          e.x+=Math.sin(e.phase+time)*decision.speed*dt;
+          e.z+=Math.cos(e.phase+time)*decision.speed*dt;
           continue;
         }
-
-        if(wanted==1){
-          e.state=1; // ALERT: watches and keeps distance
+        if(decision.state==NpcDirector.State.ALERT){
           if(dist<20f && dist>.05f){
             float len=dist;
-            e.x-=dx/len*(1.0f+tier*.08f)*dt;
-            e.z-=dz/len*(1.0f+tier*.08f)*dt;
+            e.x-=dx/len*decision.speed*dt;
+            e.z-=dz/len*decision.speed*dt;
           }
-        } else {
-          e.state=2; // CHASE
-          if(dist<30f && dist>.05f){
-            float len=dist;
-            float enemySpeed=1.25f+e.type*.30f+tier*.22f;
-            e.x+=dx/len*enemySpeed*dt;
-            e.z+=dz/len*enemySpeed*dt;
-          }
-          if(dist<2.6f && combatCooldown<=0){
-            playerHealth-=6+tier*2;
-            combatCooldown=.85f;
-            if(playerHealth<=0){
-              playerHealth=100;
-              cash=Math.max(0,cash-450-tier*120);
-              x=0;z=4;spd=0;wanted=0;
-            }
+        } else if(dist<30f && dist>.05f) {
+          float len=dist;
+          e.x+=dx/len*decision.speed*dt;
+          e.z+=dz/len*decision.speed*dt;
+        }
+        if(decision.state==NpcDirector.State.CHASE && dist<2.6f && combatCooldown<=0){
+          playerHealth-=6+tier*2;
+          combatCooldown=.85f;
+          if(playerHealth<=0){
+            playerHealth=100;
+            cash=Math.max(0,cash-450-tier*120);
+            x=0;z=4;spd=0;wanted=0;
           }
         }
       }
