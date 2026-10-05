@@ -58,7 +58,7 @@ public final class GameView extends FrameLayout {
       for(int i=0;i<42;i++)objs.add(new Obj(-95+rnd.nextFloat()*190,-40+rnd.nextFloat()*83,5+rnd.nextFloat()*4,8+rnd.nextFloat()*18));
       for(int i=0;i<18;i++)traffic.add(new Obj(-82+rnd.nextFloat()*164,-28+rnd.nextFloat()*58,3.8f,6));
     }
-    public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig c){
+    public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig c){
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);
       pr=link(shader(GLES20.GL_VERTEX_SHADER,VS),shader(GLES20.GL_FRAGMENT_SHADER,FS));
       ap=GLES20.glGetAttribLocation(pr,"p");an=GLES20.glGetAttribLocation(pr,"n");
