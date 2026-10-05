@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
+// Verified control-tuning build candidate.
 public final class GameView extends FrameLayout {
   private final World world;
   private final HUD hud;
