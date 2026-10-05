@@ -63,7 +63,7 @@ public final class GameView extends FrameLayout {
       for(int i=0;i<10;i++)enemies.add(new Enemy(-70+(i%5)*35,18+(i/5)*17,i%4)); for(int i=0;i<5;i++)policeUnits.add(new PoliceUnit(-38+i*19,10,i));
     }
     public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig c){
-      GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);
+      GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glEnable(GLES20.GL_BLEND);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
       pr=link(shader(GLES20.GL_VERTEX_SHADER,VS),shader(GLES20.GL_FRAGMENT_SHADER,FS));
       ap=GLES20.glGetAttribLocation(pr,"p");an=GLES20.glGetAttribLocation(pr,"n");
       um=GLES20.glGetUniformLocation(pr,"m");uc=GLES20.glGetUniformLocation(pr,"c");ul=GLES20.glGetUniformLocation(pr,"l");
@@ -189,22 +189,24 @@ public final class GameView extends FrameLayout {
     void car(float X,float Z,int t){car(X,Z,t,0);}
     void car(float X,float Z,int t,float rot){
       float[] c=color(t);
-      // soft ground shadow / contact patch
       boxRot(X,.02f,Z,4.9f,.025f,7.2f,rot,new float[]{.018f,.020f,.022f,1});
       boxRot(X,.58f,Z,4.2f,.95f,6.7f,rot,c);
-      boxRot(X,1.17f,Z-.20f,3.05f,.78f,3.45f,rot,new float[]{.035f,.065f,.085f,1});
-      boxRot(X,1.53f,Z-.15f,2.55f,.12f,2.55f,rot,new float[]{.10f,.13f,.15f,1});
-      for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})
-        boxRot(X+sx*1.72f,.38f,Z+sz*2.35f,.45f,.58f,1.05f,rot,new float[]{.018f,.018f,.02f,1});
-      // Front/rear light clusters and bumpers.
-      boxRot(X-.95f,.72f,Z+3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
-      boxRot(X+.95f,.72f,Z+3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
-      boxRot(X-.95f,.72f,Z-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
-      boxRot(X+.95f,.72f,Z-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
-      boxRot(X,.44f,Z+3.25f,3.55f,.12f,.18f,rot,new float[]{.06f,.07f,.075f,1});
-      // Side mirrors.
-      boxRot(X-1.98f,1.23f,Z+.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
-      boxRot(X+1.98f,1.23f,Z+.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
+      part(X,Z,1.17f,0,-.20f,3.05f,.78f,3.45f,rot,new float[]{.035f,.065f,.085f,1});
+      part(X,Z,1.53f,0,-.15f,2.55f,.12f,2.55f,rot,new float[]{.10f,.13f,.15f,1});
+      for(int side:new int[]{-1,1})for(int forward:new int[]{-1,1})
+        part(X,Z,.38f,side*1.72f,forward*2.35f,.45f,.58f,1.05f,rot,new float[]{.018f,.018f,.02f,1});
+      part(X,Z,.72f,-.95f,3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
+      part(X,Z,.72f,.95f,3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
+      part(X,Z,.72f,-.95f,-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
+      part(X,Z,.72f,.95f,-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
+      part(X,Z,.44f,0,3.25f,3.55f,.12f,.18f,rot,new float[]{.06f,.07f,.075f,1});
+      part(X,Z,1.23f,-1.98f,.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
+      part(X,Z,1.23f,1.98f,.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
+    }
+    void part(float X,float Z,float Y,float lx,float lz,float sx,float sy,float sz,float rot,float[] col){
+      float cs=(float)Math.cos(rot),sn=(float)Math.sin(rot);
+      float px=X+cs*lx+sn*lz,pz=Z-sn*lx+cs*lz;
+      boxRot(px,Y,pz,sx,sy,sz,rot,col);
     }
     void streetLight(float X,float Z,int idx){
       box(X,1.9f,Z,.12f,3.8f,.12f,new float[]{.12f,.14f,.14f,1});
@@ -267,8 +269,8 @@ public final class GameView extends FrameLayout {
       car(p.x,p.z,5,p.yaw);
       float blink=(float)Math.sin(time*16.0f);
       float blue=blink>0?1f:.18f,red=blink<0?1f:.18f;
-      boxRot(p.x-.62f,1.62f,p.z+.15f,1.05f,.14f,.22f,p.yaw,new float[]{.06f,.30f,blue,1});
-      boxRot(p.x+.62f,1.62f,p.z+.15f,1.05f,.14f,.22f,p.yaw,new float[]{red,.06f,.06f,1});
+      part(p.x,p.z,1.62f,-.62f,.15f,1.05f,.14f,.22f,p.yaw,new float[]{.06f,.30f,blue,1});
+      part(p.x,p.z,1.62f,.62f,.15f,1.05f,.14f,.22f,p.yaw,new float[]{red,.06f,.06f,1});
       float sideX=(float)Math.cos(p.yaw),sideZ=-(float)Math.sin(p.yaw);
       float open=1.0f+p.door*.55f;
       boxRot(p.x+sideX*2.08f*open,.95f,p.z+sideZ*2.08f,.10f,1.28f,1.65f,p.yaw,new float[]{.07f,.08f,.10f,1});
@@ -439,7 +441,7 @@ public final class GameView extends FrameLayout {
       }
       float wrap(float a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
     }
-    static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
+    static final class Obj{float x,z,w,h,rot;int kind;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;this.rot=0;this.kind=0;}}
     static final class Enemy{float x,z;int type,hp,maxHp,state=0,reaction=0;float phase,reactionTimer=0;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
   }
 
