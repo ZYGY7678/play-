@@ -124,7 +124,8 @@ public final class GameView extends FrameLayout {
       if(onFoot){
         if(gas)forwardHold+=dt;else forwardHold=0;
         boolean running=gas&&forwardHold>=.55f;
-        float target=gas?(running?4.8f:2.1f):0;
+        float holdBoost=Math.min(1.9f,Math.max(0f,(forwardHold-.55f)*.55f));
+        float target=gas?(running?(4.8f+holdBoost):2.1f):0;
         if(brake){target=-1.65f;forwardHold=0;}
         float accel=(Math.abs(target)>.01f)?(running?5.2f:6.8f):8.5f;
         footSpeed+=(target-footSpeed)*Math.min(1,dt*accel);
@@ -450,7 +451,7 @@ public final class GameView extends FrameLayout {
   }
 
   private static final class HUD extends View {
-    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final R r;int mode=0;boolean intro=true;int movePointer=-1,moveControl=-1,actionPointer=-1,actionControl=-1;
+    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final R r;int mode=0;boolean intro=true;int movePointer=-1,moveControl=-1,actionPointer=-1,actionControl=-1;long actionDownAt=0;long lastActionAt=0;
     HUD(Context c,R r){super(c);this.r=r;setFocusable(true);}
     protected void onDraw(Canvas c){
       int w=getWidth(),h=getHeight();
@@ -471,7 +472,7 @@ public final class GameView extends FrameLayout {
       round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));if(r.robberyRunning())t(c,"שוד וירטואלי פעיל • תגמול ₪ "+money(r.robberyReward()),38,202,12,Color.rgb(244,214,106));
       ctl(c,24,h-124,82,68,"◀",r.left);ctl(c,116,h-172,82,68,"▲",r.gas);ctl(c,116,h-78,82,68,"▼",r.brake);ctl(c,208,h-124,82,68,"▶",r.right);
       ctl(c,w-375,h-124,92,68,r.onFoot?"רכב":"יציאה",false);ctl(c,w-270,h-124,92,68,"מוסך",false);ctl(c,w-165,h-124,92,68,"מפה",false);
-      sml(c,w-375,h-48,92,42,"שחקן");sml(c,w-270,h-48,92,42,"מצלמה");sml(c,w-165,h-48,92,42,r.robberyRunning()?"מתבצע":"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-43,13,Color.LTGRAY);t(c,"החזק ▲ לתנועה רציפה • אחרי חצי שנייה מתחילה תאוצת ריצה • ◀ ▶ היגוי",w/2f-240,h-18,12,Color.LTGRAY);
+      sml(c,w-375,h-48,92,42,"שחקן");sml(c,w-270,h-48,92,42,"מצלמה");sml(c,w-165,h-48,92,42,r.robberyRunning()?"מתבצע":"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-43,13,Color.LTGRAY);t(c,"החזק ▲ לתנועה רציפה ותאוצה • החזק אקשן לפעולה חוזרת • ◀ ▶ היגוי",w/2f-240,h-18,12,Color.LTGRAY);
     }
     void intro(Canvas c,int w,int h){fill(c,0x77000000);c.drawRect(0,0,w,h,p);round(c,w/2f-265,h/2f-96,w/2f+265,h/2f+96,0xF01A222A,28);t(c,"ברוכים הבאים ל־ROAD LEGENDS",w/2f-212,h/2f-38,23,Color.WHITE);t(c,"תלת־ממד • עיר • נמל • שטח • שדה תעופה",w/2f-190,h/2f-5,15,Color.LTGRAY);t(c,"התחל במשימת הפתיחה, פגוש יריבים והתקדם לרכבים ולמוסך",w/2f-220,h/2f+25,15,Color.LTGRAY);primary(c,w/2f-105,h/2f+46,210,50,"הבנתי");}
     void garage(Canvas c,int w,int h){fill(c,0xA8000000);c.drawRect(0,0,w,h,p);round(c,26,24,w-26,h-24,0xF019222A,28);t(c,"המוסך שלי",52,68,30,Color.WHITE);t(c,"קנה והחלף כלי תחבורה",52,95,14,Color.LTGRAY);String[] n={"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"};String[] s={"ספורט","מרוץ","שטח","משאית","אופנוע","ממוגן","כלי שיט","מסוק"};float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float x=50+col*cw,y=118+row*92;round(c,x,y,x+cw-14,y+76,i==r.vehicle?0xFF314B60:0xFF202830,16);t(c,n[i],x+12,y+27,14,Color.WHITE);t(c,s[i],x+12,y+49,12,Color.LTGRAY);int q=r.prices()[i];t(c,q==0?"שלך":"₪ "+money(q),x+12,y+68,12,Color.rgb(244,214,106));}primary(c,w-170,h-78,120,48,"חזרה");}
@@ -514,17 +515,20 @@ public final class GameView extends FrameLayout {
             if(movePointer==-1){movePointer=pid;moveControl=control;applyMoveControl(control,true);invalidate();}
             return true;
           }
-          if(control>=4){actionPointer=pid;actionControl=control;invalidate();return true;}
+          if(control>=4){actionPointer=pid;actionControl=control;actionDownAt=SystemClock.uptimeMillis();lastActionAt=actionDownAt;if(control==8)r.trigger();invalidate();return true;}
+        }else if(action==MotionEvent.ACTION_MOVE){
+          if(actionPointer>=0&&actionControl==8&&SystemClock.uptimeMillis()-actionDownAt>420&&SystemClock.uptimeMillis()-lastActionAt>420){r.trigger();lastActionAt=SystemClock.uptimeMillis();invalidate();}
+          return true;
         }else if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){
           if(pid==movePointer){applyMoveControl(moveControl,false);movePointer=-1;moveControl=-1;invalidate();}
           if(pid==actionPointer){
-            int pressedControl=actionControl;actionPointer=-1;actionControl=-1;
+            int pressedControl=actionControl;actionPointer=-1;actionControl=-1;actionDownAt=0;lastActionAt=0;
             if(buttonAt(x,y,w,h)==pressedControl)activateButton(pressedControl);
             invalidate();
           }
           return true;
         }else if(action==MotionEvent.ACTION_CANCEL){
-          stop();movePointer=-1;moveControl=-1;actionPointer=-1;actionControl=-1;invalidate();return true;
+          stop();movePointer=-1;moveControl=-1;actionPointer=-1;actionControl=-1;actionDownAt=0;lastActionAt=0;invalidate();return true;
         }
         return true;
       }
