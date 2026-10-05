@@ -1,466 +1,734 @@
 package com.zygy.roadlegends;
 
 import android.content.Context;
-import android.graphics.*;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.view.MotionEvent;
 import android.view.View;
+
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 public class GameView extends View {
+    private static final int MODE_GAME = 0;
+    private static final int MODE_GARAGE = 1;
+    private static final int MODE_MENU = 2;
+    private static final int MODE_JAIL = 3;
+
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Random random = new Random(7);
-    private float px = 0, py = 0, vx = 0, vy = 0;
-    private boolean inCar = true;
-    private int vehicleIndex = 0;
-    private int cash = 25000;
+    private final Random random = new Random(42);
+    private final List<WorldVehicle> vehicles = new ArrayList<>();
+    private final List<Police> police = new ArrayList<>();
+
+    private float playerX = 0f;
+    private float playerY = -50f;
+    private float inputX = 0f;
+    private float inputY = 0f;
+    private float cameraZoom = 1.0f;
+    private float wantedPulse = 0f;
+
+    private boolean inVehicle = true;
+    private int ownedVehicle = 0;
+    private int cash = 50000;
     private int wanted = 0;
-    private int heatTimer = 0;
-    private int mode = 0; // 0 driving, 1 garage, 2 inventory, 3 jail
-    private float zoom = 1.0f;
-    private long last;
-    private final List<Entity> entities = new ArrayList<>();
+    private long wantedUntil = 0L;
+    private int mode = MODE_GAME;
+    private long lastFrame = System.currentTimeMillis();
 
-    private static final String[] VEHICLES = {
-            "Urban GT", "Roadster X", "4x4 Ranger", "Road Hauler",
-            "Trail Bike", "Armor Van", "Speed Boat", "Sea Runner", "Heli Scout"
+    private static final VehicleSpec[] VEHICLES = {
+            new VehicleSpec("Urban GT", "מכונית ספורט", 0, Color.rgb(220, 60, 55), 0),
+            new VehicleSpec("Roadster X", "מכונית מרוץ", 22000, Color.rgb(45, 125, 230), 0),
+            new VehicleSpec("Rally 4x4", "ג'יפ שטח", 32000, Color.rgb(210, 165, 55), 1),
+            new VehicleSpec("Heavy Truck", "משאית", 42000, Color.rgb(175, 105, 60), 2),
+            new VehicleSpec("Trail Moto", "אופנוע שטח", 12000, Color.rgb(70, 200, 120), 1),
+            new VehicleSpec("Armored SUV", "רכב ממוגן", 68000, Color.rgb(75, 85, 78), 3),
+            new VehicleSpec("Rescue Van", "רכב חילוץ", 46000, Color.rgb(225, 225, 225), 3),
+            new VehicleSpec("Speed Boat", "סירת מרוץ", 28000, Color.rgb(70, 170, 220), 4),
+            new VehicleSpec("Sea Runner", "אופנוע ים", 21000, Color.rgb(40, 210, 210), 4),
+            new VehicleSpec("Heli Scout", "מסוק", 125000, Color.rgb(115, 145, 95), 5),
+            new VehicleSpec("Airliner", "מטוס נוסעים", 350000, Color.rgb(235, 235, 235), 5),
+            new VehicleSpec("Offroad Quad", "טרקטורון", 15000, Color.rgb(235, 120, 45), 1)
     };
-    private static final int[] PRICES = {0, 18000, 24000, 32000, 8500, 65000, 22000, 27000, 120000};
-    private static final String[] GEAR = {"ערכת תיקון", "פנס שטח", "מצנח", "מפתחות רכב", "רדיו", "מצלמה"};
 
-    public GameView(Context c) {
-        super(c);
+    public GameView(Context context) {
+        super(context);
         setFocusable(true);
-        last = System.currentTimeMillis();
         buildWorld();
     }
 
     private void buildWorld() {
-        entities.clear();
-        for (int i = 0; i < 26; i++) {
-            float x = -1400 + random.nextInt(2800);
-            float y = -900 + random.nextInt(1800);
-            int t = i % 7;
-            entities.add(new Entity(x, y, t));
+        vehicles.clear();
+        police.clear();
+
+        // City traffic.
+        addVehicle("Sedan A", 0, 330, Color.rgb(200, 70, 70), 0, false);
+        addVehicle("Sedan B", -620, 330, Color.rgb(70, 150, 230), 0, false);
+        addVehicle("Coupe", 640, 330, Color.rgb(235, 180, 60), 0, false);
+        addVehicle("Rally", -360, -510, Color.rgb(220, 160, 50), 2, false);
+        addVehicle("Truck", 780, -510, Color.rgb(175, 105, 60), 3, false);
+        addVehicle("Bike", -120, 720, Color.rgb(60, 210, 120), 4, false);
+        addVehicle("Quad", 470, 850, Color.rgb(235, 120, 45), 11, false);
+        addVehicle("Armored", 1040, -500, Color.rgb(70, 80, 72), 5, false);
+        addVehicle("Rescue", -1050, -470, Color.WHITE, 6, false);
+
+        // Harbor traffic.
+        for (int i = 0; i < 6; i++) {
+            addVehicle("Boat " + i, -1100 + i * 300, 700, i % 2 == 0 ? Color.rgb(235,235,235) : Color.rgb(80,170,220), 7, false);
         }
-        for (int i = 0; i < 10; i++) {
-            float x = -1200 + i * 260;
-            entities.add(new Entity(x, 520, 8)); // sea craft near harbor
+        addVehicle("Jet", 850, 760, Color.rgb(45, 210, 215), 8, false);
+
+        // Airport.
+        addVehicle("Heli", -900, -900, Color.rgb(110, 145, 90), 9, false);
+        addVehicle("Plane", -500, -900, Color.rgb(238, 238, 238), 10, false);
+
+        for (int i = 0; i < 12; i++) {
+            float x = -1200 + random.nextInt(2400);
+            float y = -1050 + random.nextInt(2100);
+            if (Math.abs(x) < 260 && Math.abs(y) < 260) {
+                x += 500;
+            }
+            int type = random.nextInt(6);
+            addVehicle("Traffic " + i, x, y, VEHICLES[type].color, type, true);
         }
-        entities.add(new Entity(-950, -500, 9)); // airport
-        entities.add(new Entity(800, -550, 10)); // military base
-        entities.add(new Entity(0, 0, 11)); // player area
+
+        // A few patrol cars start far away; they become active when wanted rises.
+        for (int i = 0; i < 5; i++) {
+            Police unit = new Police(-1500 + i * 620, -1200 + i * 180);
+            police.add(unit);
+        }
     }
 
-    @Override protected void onDraw(Canvas c) {
-        super.onDraw(c);
+    private void addVehicle(String name, float x, float y, int color, int type, boolean traffic) {
+        vehicles.add(new WorldVehicle(name, x, y, color, type, traffic));
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
         long now = System.currentTimeMillis();
-        float dt = Math.min(0.04f, (now - last) / 1000f);
-        last = now;
+        float dt = Math.min(0.035f, Math.max(0.001f, (now - lastFrame) / 1000f));
+        lastFrame = now;
 
-        if (mode != 3) update(dt);
+        if (mode == MODE_GAME) {
+            updateWorld(dt);
+        }
 
-        drawWorld(c);
-        drawVehicle(c);
-        drawPlayer(c);
-        drawHud(c);
+        drawWorld(canvas);
+        drawPlayer(canvas);
+        drawHud(canvas);
 
-        if (mode == 1) drawGarage(c);
-        if (mode == 2) drawInventory(c);
-        if (mode == 3) drawJail(c);
+        if (mode == MODE_GARAGE) drawGarage(canvas);
+        else if (mode == MODE_MENU) drawMenu(canvas);
+        else if (mode == MODE_JAIL) drawJail(canvas);
 
         postInvalidateDelayed(16);
     }
 
-    private void update(float dt) {
-        px += vx * dt;
-        py += vy * dt;
-        vx *= 0.90f;
-        vy *= 0.90f;
+    private void updateWorld(float dt) {
+        float speed = inVehicle ? 420f : 235f;
+        playerX += inputX * speed * dt;
+        playerY += inputY * speed * dt;
+        inputX *= 0.82f;
+        inputY *= 0.82f;
 
-        if (heatTimer > 0) {
-            heatTimer -= (int)(dt * 1000);
-            if (heatTimer <= 0) {
-                heatTimer = 0;
+        wantedPulse += dt;
+        if (wanted > 0) {
+            if (System.currentTimeMillis() > wantedUntil) {
                 wanted = Math.max(0, wanted - 1);
+                wantedUntil = System.currentTimeMillis() + 4000L;
             }
         }
 
-        if (wanted > 0 && (Math.abs(px) > 1800 || Math.abs(py) > 1300)) {
-            wanted = 0;
-            heatTimer = 0;
+        // Light traffic movement keeps the city alive.
+        for (WorldVehicle v : vehicles) {
+            if (!v.traffic) continue;
+            v.x += v.dirX * 28f * dt;
+            v.y += v.dirY * 28f * dt;
+            if (v.x < -1900) v.x = 1900;
+            if (v.x > 1900) v.x = -1900;
+            if (v.y < -1200) v.y = 1200;
+            if (v.y > 1200) v.y = -1200;
         }
 
-        // Gentle world bounds.
-        px = Math.max(-2000, Math.min(2000, px));
-        py = Math.max(-1200, Math.min(1200, py));
+        // Wanted level activates nearby patrols.
+        for (Police unit : police) {
+            if (wanted >= 2) {
+                float dx = playerX - unit.x;
+                float dy = playerY - unit.y;
+                float dist = Math.max(1f, (float)Math.sqrt(dx * dx + dy * dy));
+                float chase = (wanted >= 4 ? 185f : 135f) * dt;
+                unit.x += dx / dist * chase;
+                unit.y += dy / dist * chase;
+                if (dist < 70 && wanted >= 3) {
+                    mode = MODE_JAIL;
+                    inputX = inputY = 0f;
+                }
+            } else {
+                unit.x += unit.dirX * 18f * dt;
+                unit.y += unit.dirY * 18f * dt;
+            }
+        }
+
+        playerX = clamp(playerX, -1950f, 1950f);
+        playerY = clamp(playerY, -1150f, 1150f);
     }
 
     private void drawWorld(Canvas c) {
-        float w = getWidth(), h = getHeight();
-        c.drawColor(Color.rgb(18, 27, 22));
+        float w = getWidth();
+        float h = getHeight();
 
+        c.drawColor(Color.rgb(23, 31, 29));
         c.save();
-        c.translate(w / 2f - px * zoom, h / 2f - py * zoom);
-        c.scale(zoom, zoom);
+        c.translate(w / 2f - playerX * cameraZoom, h / 2f - playerY * cameraZoom);
+        c.scale(cameraZoom, cameraZoom);
 
-        // Water zone.
-        p.setStyle(Paint.Style.FILL);
-        p.setColor(Color.rgb(35, 96, 126));
-        c.drawRect(-2100, 350, 2100, 1500, p);
+        // Grass / city land.
+        fill(c, Color.rgb(68, 92, 66));
+        c.drawRect(-2100, -1250, 2100, 1250, p);
 
-        // Airport runway.
-        p.setColor(Color.rgb(60, 64, 68));
-        c.drawRect(-1250, -730, -450, -220, p);
-        p.setColor(Color.WHITE);
-        p.setStrokeWidth(8);
-        for (int i = 0; i < 9; i++) c.drawLine(-1180 + i * 80, -475, -1140 + i * 80, -475, p);
+        // Coast and sea.
+        fill(c, Color.rgb(33, 104, 138));
+        c.drawRect(-2100, 520, 2100, 1250, p);
+        drawWaterLines(c);
 
-        // Main roads.
-        p.setColor(Color.rgb(48, 51, 53));
-        c.drawRect(-2100, -120, 2100, 130, p);
-        c.drawRect(-120, -1300, 120, 1300, p);
-        c.drawRect(-1600, -600, 700, -430, p);
-        c.drawRect(500, 250, 2100, 410, p);
+        // City district.
+        fill(c, Color.rgb(92, 91, 83));
+        c.drawRect(-1850, -850, 600, 500, p);
 
-        // City blocks.
-        p.setColor(Color.rgb(92, 88, 82));
-        for (int gx = -1800; gx <= 1600; gx += 360) {
-            for (int gy = -950; gy <= 50; gy += 300) {
-                if (Math.abs(gx) < 250 || Math.abs(gy) < 200) continue;
-                RectF r = new RectF(gx, gy, gx + 230, gy + 180);
-                c.drawRoundRect(r, 18, 18, p);
+        // Roads with center markings.
+        drawRoad(c, -2000, -140, 4000, 260, true);
+        drawRoad(c, -130, -1200, 260, 1700, false);
+        drawRoad(c, -1600, -620, 2200, 160, true);
+        drawRoad(c, 500, 250, 1650, 170, true);
+
+        // City buildings.
+        for (int x = -1750; x <= 350; x += 330) {
+            for (int y = -760; y <= 200; y += 270) {
+                if (Math.abs(x) < 300 || Math.abs(y) < 160) continue;
+                drawBuilding(c, x, y, 230, 175);
             }
         }
 
-        // Harbor.
-        p.setColor(Color.rgb(75, 69, 60));
-        c.drawRect(-1350, 260, 450, 480, p);
-        p.setColor(Color.rgb(115, 100, 77));
-        c.drawRect(-900, 300, -840, 350, p);
-        c.drawRect(-500, 300, -440, 350, p);
+        // Off-road area.
+        fill(c, Color.rgb(97, 116, 67));
+        c.drawRect(620, -150, 2000, 510, p);
+        for (int i = 0; i < 18; i++) {
+            float x = 700 + (i * 97) % 1200;
+            float y = -70 + (i * 73) % 470;
+            fill(c, Color.rgb(72, 88, 57));
+            c.drawCircle(x, y, 24 + (i % 3) * 9, p);
+        }
 
-        // Military base.
-        p.setColor(Color.rgb(83, 98, 79));
-        c.drawRect(620, -710, 1180, -390, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(12);
-        p.setColor(Color.rgb(150, 170, 150));
-        c.drawRect(620, -710, 1180, -390, p);
-        p.setStyle(Paint.Style.FILL);
+        // Harbor dock.
+        fill(c, Color.rgb(105, 88, 65));
+        c.drawRect(-1500, 420, 400, 620, p);
+        fill(c, Color.rgb(148, 124, 88));
+        for (int i = 0; i < 8; i++) {
+            c.drawRect(-1380 + i * 215, 435, -1335 + i * 215, 610, p);
+        }
+        label(c, "נמל", -1260, 505, 28, Color.WHITE);
 
-        // Entities.
-        for (Entity e : entities) drawEntity(c, e);
+        // Airport runways and terminal.
+        fill(c, Color.rgb(55, 60, 64));
+        c.drawRect(-1350, -1090, 250, -770, p);
+        c.drawRect(-1120, -1200, -930, -650, p);
+        fill(c, Color.WHITE);
+        for (int i = 0; i < 11; i++) {
+            c.drawRect(-1290 + i * 125, -943, -1230 + i * 125, -927, p);
+        }
+        fill(c, Color.rgb(225, 225, 225));
+        c.drawRoundRect(new RectF(-1150, -850, -700, -770), 16, 16, p);
+        label(c, "שדה תעופה", -1080, -810, 24, Color.DKGRAY);
+
+        // Scenic hill.
+        fill(c, Color.rgb(76, 96, 61));
+        Path hill = new Path();
+        hill.moveTo(1100, -1050);
+        hill.lineTo(1600, -1050);
+        hill.lineTo(1850, -700);
+        hill.lineTo(1100, -700);
+        hill.close();
+        c.drawPath(hill, p);
+
+        // World vehicles.
+        for (WorldVehicle v : vehicles) {
+            drawWorldVehicle(c, v);
+        }
+
+        // Police.
+        for (Police unit : police) {
+            drawPolice(c, unit.x, unit.y);
+        }
 
         c.restore();
     }
 
-    private void drawEntity(Canvas c, Entity e) {
-        p.setStyle(Paint.Style.FILL);
-        float x = e.x, y = e.y;
-        switch (e.type) {
-            case 0: drawCar(c, x, y, Color.rgb(210, 60, 60)); break;
-            case 1: drawCar(c, x, y, Color.rgb(55, 120, 210)); break;
-            case 2: drawCar(c, x, y, Color.rgb(210, 180, 60)); break;
-            case 3: drawTruck(c, x, y); break;
-            case 4: drawBike(c, x, y); break;
-            case 5: drawPolice(c, x, y); break;
-            case 6: drawArmor(c, x, y); break;
-            case 8: drawBoat(c, x, y); break;
-            case 9: drawAirport(c, x, y); break;
-            case 10: drawBase(c, x, y); break;
-            case 11: break;
+    private void drawWaterLines(Canvas c) {
+        p.setStrokeWidth(4);
+        p.setColor(Color.rgb(55, 135, 165));
+        for (int i = -2000; i < 2000; i += 130) {
+            c.drawLine(i, 600, i + 70, 600, p);
+            c.drawLine(i + 40, 760, i + 115, 760, p);
+            c.drawLine(i - 20, 920, i + 50, 920, p);
         }
     }
 
-    private void drawCar(Canvas c, float x, float y, int col) {
-        p.setColor(col);
-        c.drawRoundRect(new RectF(x - 55, y - 30, x + 55, y + 30), 15, 15, p);
-        p.setColor(Color.DKGRAY);
-        c.drawRect(x - 25, y - 22, x + 25, y + 22, p);
-        p.setColor(Color.WHITE);
-        c.drawCircle(x - 42, y + 25, 9, p);
-        c.drawCircle(x + 42, y + 25, 9, p);
+    private void drawRoad(Canvas c, float x, float y, float width, float height, boolean horizontal) {
+        fill(c, Color.rgb(47, 51, 53));
+        c.drawRect(x, y, x + width, y + height, p);
+        p.setStrokeWidth(7);
+        p.setColor(Color.rgb(216, 190, 75));
+        if (horizontal) {
+            for (float xx = x + 20; xx < x + width; xx += 85) {
+                c.drawLine(xx, y + height / 2f, xx + 42, y + height / 2f, p);
+            }
+        } else {
+            for (float yy = y + 20; yy < y + height; yy += 85) {
+                c.drawLine(x + width / 2f, yy, x + width / 2f, yy + 42, p);
+            }
+        }
     }
 
-    private void drawTruck(Canvas c, float x, float y) {
-        p.setColor(Color.rgb(145, 96, 58));
-        c.drawRect(x - 72, y - 36, x + 72, y + 36, p);
-        p.setColor(Color.rgb(55, 61, 66));
-        c.drawRect(x - 95, y - 28, x - 70, y + 30, p);
-        c.drawCircle(x - 58, y + 40, 10, p);
-        c.drawCircle(x + 52, y + 40, 10, p);
+    private void drawBuilding(Canvas c, float x, float y, float bw, float bh) {
+        fill(c, Color.rgb(149, 145, 136));
+        c.drawRoundRect(new RectF(x, y, x + bw, y + bh), 15, 15, p);
+        fill(c, Color.rgb(67, 77, 86));
+        for (int i = 0; i < 4; i++) {
+            c.drawRect(x + 25 + i * 50, y + 28, x + 57 + i * 50, y + 62, p);
+            c.drawRect(x + 25 + i * 50, y + 90, x + 57 + i * 50, y + 124, p);
+        }
+        fill(c, Color.rgb(112, 105, 97));
+        c.drawRect(x + 70, y + bh - 48, x + 160, y + bh, p);
     }
 
-    private void drawBike(Canvas c, float x, float y) {
-        p.setColor(Color.WHITE);
+    private void drawWorldVehicle(Canvas c, WorldVehicle v) {
+        switch (v.type) {
+            case 3: drawTruck(c, v.x, v.y, v.color); break;
+            case 4:
+            case 11: drawBike(c, v.x, v.y, v.color); break;
+            case 7:
+            case 8: drawBoat(c, v.x, v.y, v.color); break;
+            case 9: drawHelicopter(c, v.x, v.y, v.color); break;
+            case 10: drawPlane(c, v.x, v.y, v.color); break;
+            case 5: drawArmored(c, v.x, v.y, v.color); break;
+            default: drawCar(c, v.x, v.y, v.color); break;
+        }
+    }
+
+    private void drawCar(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        c.drawRoundRect(new RectF(x - 52, y - 30, x + 52, y + 30), 15, 15, p);
+        fill(c, Color.rgb(35, 43, 50));
+        c.drawRoundRect(new RectF(x - 25, y - 22, x + 28, y + 18), 10, 10, p);
+        fill(c, Color.rgb(18, 18, 18));
+        c.drawCircle(x - 38, y + 26, 10, p);
+        c.drawCircle(x + 38, y + 26, 10, p);
+        fill(c, Color.WHITE);
+        c.drawCircle(x - 38, y - 26, 5, p);
+        c.drawCircle(x + 38, y - 26, 5, p);
+    }
+
+    private void drawTruck(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        c.drawRect(x - 72, y - 34, x + 70, y + 34, p);
+        fill(c, Color.rgb(50, 58, 65));
+        c.drawRect(x - 96, y - 28, x - 70, y + 31, p);
+        fill(c, Color.rgb(18, 18, 18));
+        c.drawCircle(x - 55, y + 40, 11, p);
+        c.drawCircle(x + 48, y + 40, 11, p);
+        c.drawCircle(x + 76, y + 40, 11, p);
+    }
+
+    private void drawBike(Canvas c, float x, float y, int color) {
+        p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(8);
-        c.drawCircle(x - 28, y + 18, 15, p);
-        c.drawCircle(x + 28, y + 18, 15, p);
-        c.drawLine(x - 28, y + 18, x, y - 8, p);
-        c.drawLine(x, y - 8, x + 28, y + 18, p);
+        p.setColor(color);
+        c.drawCircle(x - 28, y + 18, 16, p);
+        c.drawCircle(x + 28, y + 18, 16, p);
+        c.drawLine(x - 28, y + 18, x, y - 12, p);
+        c.drawLine(x, y - 12, x + 28, y + 18, p);
+        p.setStyle(Paint.Style.FILL);
+        fill(c, color);
+        c.drawCircle(x, y - 20, 8, p);
+    }
+
+    private void drawArmored(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        c.drawRoundRect(new RectF(x - 68, y - 37, x + 68, y + 37), 10, 10, p);
+        fill(c, Color.rgb(36, 43, 39));
+        c.drawRoundRect(new RectF(x - 25, y - 24, x + 30, y + 18), 8, 8, p);
+        fill(c, Color.rgb(18, 18, 18));
+        c.drawCircle(x - 45, y + 33, 12, p);
+        c.drawCircle(x + 45, y + 33, 12, p);
+    }
+
+    private void drawBoat(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        Path hull = new Path();
+        hull.moveTo(x - 65, y);
+        hull.lineTo(x + 58, y);
+        hull.lineTo(x + 33, y + 36);
+        hull.lineTo(x - 42, y + 36);
+        hull.close();
+        c.drawPath(hull, p);
+        fill(c, Color.rgb(40, 55, 65));
+        c.drawRoundRect(new RectF(x - 20, y - 32, x + 30, y + 4), 6, 6, p);
+    }
+
+    private void drawHelicopter(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        c.drawRoundRect(new RectF(x - 48, y - 18, x + 50, y + 20), 18, 18, p);
+        fill(c, Color.rgb(35, 42, 45));
+        c.drawCircle(x + 14, y, 18, p);
+        p.setStrokeWidth(5);
+        p.setColor(Color.DKGRAY);
+        c.drawLine(x - 65, y - 27, x + 66, y - 27, p);
+        c.drawLine(x - 38, y + 30, x + 60, y + 30, p);
+    }
+
+    private void drawPlane(Canvas c, float x, float y, int color) {
+        fill(c, color);
+        Path plane = new Path();
+        plane.moveTo(x - 88, y);
+        plane.lineTo(x - 20, y - 12);
+        plane.lineTo(x + 78, y - 42);
+        plane.lineTo(x + 88, y - 28);
+        plane.lineTo(x + 20, y);
+        plane.lineTo(x + 88, y + 28);
+        plane.lineTo(x + 78, y + 42);
+        plane.lineTo(x - 20, y + 12);
+        plane.close();
+        c.drawPath(plane, p);
+        fill(c, Color.rgb(70, 90, 100));
+        c.drawRoundRect(new RectF(x - 10, y - 8, x + 62, y + 8), 7, 7, p);
     }
 
     private void drawPolice(Canvas c, float x, float y) {
-        drawCar(c, x, y, Color.rgb(235, 235, 235));
-        p.setColor(Color.rgb(210, 50, 50));
-        c.drawRect(x - 16, y - 42, x + 2, y - 30, p);
-        p.setColor(Color.rgb(50, 90, 220));
-        c.drawRect(x + 2, y - 42, x + 20, y - 30, p);
-    }
-
-    private void drawArmor(Canvas c, float x, float y) {
-        p.setColor(Color.rgb(72, 83, 66));
-        c.drawRect(x - 65, y - 40, x + 65, y + 40, p);
-        p.setColor(Color.rgb(45, 50, 40));
-        c.drawCircle(x + 10, y - 4, 24, p);
-        c.drawRect(x + 22, y - 9, x + 75, y + 9, p);
-    }
-
-    private void drawBoat(Canvas c, float x, float y) {
-        p.setColor(Color.rgb(230, 230, 230));
-        Path path = new Path();
-        path.moveTo(x - 70, y);
-        path.lineTo(x + 60, y);
-        path.lineTo(x + 35, y + 38);
-        path.lineTo(x - 48, y + 38);
-        path.close();
-        c.drawPath(path, p);
-        p.setColor(Color.rgb(45, 55, 65));
-        c.drawRect(x - 18, y - 36, x + 25, y + 2, p);
-    }
-
-    private void drawAirport(Canvas c, float x, float y) {
-        p.setColor(Color.WHITE);
-        c.drawCircle(x, y, 34, p);
-        p.setColor(Color.rgb(70, 90, 120));
-        c.drawRect(x - 44, y - 10, x + 44, y + 10, p);
-        c.drawRect(x - 10, y - 44, x + 10, y + 44, p);
-    }
-
-    private void drawBase(Canvas c, float x, float y) {
-        p.setColor(Color.rgb(30, 35, 30));
-        c.drawRect(x - 55, y - 35, x + 55, y + 35, p);
-        p.setColor(Color.rgb(180, 180, 160));
-        c.drawRect(x - 8, y - 55, x + 8, y + 55, p);
-    }
-
-    private void drawVehicle(Canvas c) {
-        if (!inCar) return;
-        float cx = getWidth()/2f, cy = getHeight()/2f;
-        p.setColor(Color.rgb(215, 65, 55));
-        c.drawRoundRect(new RectF(cx - 85, cy - 48, cx + 85, cy + 48), 22, 22, p);
-        p.setColor(Color.rgb(30, 35, 42));
-        c.drawRoundRect(new RectF(cx - 35, cy - 36, cx + 40, cy + 30), 12, 12, p);
-        p.setColor(Color.WHITE);
-        c.drawCircle(cx - 65, cy + 48, 12, p);
-        c.drawCircle(cx + 65, cy + 48, 12, p);
+        drawCar(c, x, y, Color.rgb(240, 240, 240));
+        fill(c, Color.rgb(40, 75, 205));
+        c.drawRect(x - 16, y - 43, x + 2, y - 29, p);
+        fill(c, Color.rgb(215, 55, 55));
+        c.drawRect(x + 2, y - 43, x + 20, y - 29, p);
     }
 
     private void drawPlayer(Canvas c) {
-        if (inCar) return;
-        float cx = getWidth()/2f, cy = getHeight()/2f;
-        p.setColor(Color.rgb(30, 30, 30));
-        c.drawCircle(cx, cy - 32, 18, p);
-        c.drawRoundRect(new RectF(cx - 20, cy - 12, cx + 20, cy + 44), 14, 14, p);
+        float cx = getWidth() / 2f;
+        float cy = getHeight() / 2f;
+        if (inVehicle) {
+            VehicleSpec spec = VEHICLES[ownedVehicle];
+            drawWorldVehicleAtScreen(c, cx, cy, spec.type, spec.color);
+        } else {
+            fill(c, Color.rgb(30, 30, 30));
+            c.drawCircle(cx, cy - 22, 14, p);
+            fill(c, Color.rgb(80, 105, 145));
+            c.drawRoundRect(new RectF(cx - 15, cy - 10, cx + 15, cy + 34), 11, 11, p);
+            fill(c, Color.rgb(32, 32, 32));
+            c.drawRect(cx - 18, cy + 27, cx - 5, cy + 52, p);
+            c.drawRect(cx + 5, cy + 27, cx + 18, cy + 52, p);
+        }
+    }
+
+    private void drawWorldVehicleAtScreen(Canvas c, float x, float y, int type, int color) {
+        switch (type) {
+            case 3: drawTruck(c, x, y, color); break;
+            case 4:
+            case 11: drawBike(c, x, y, color); break;
+            case 7:
+            case 8: drawBoat(c, x, y, color); break;
+            case 9: drawHelicopter(c, x, y, color); break;
+            case 10: drawPlane(c, x, y, color); break;
+            case 5: drawArmored(c, x, y, color); break;
+            default: drawCar(c, x, y, color); break;
+        }
     }
 
     private void drawHud(Canvas c) {
-        float w = getWidth(), h = getHeight();
-        // Header.
-        p.setColor(0xCC0D1117);
-        c.drawRect(0, 0, w, 74, p);
-        text(c, "ROAD LEGENDS", 28, 48, 27, Color.WHITE);
-        text(c, "₪" + cash, w - 160, 45, 23, Color.WHITE);
+        float w = getWidth();
+        float h = getHeight();
+
+        fill(c, 0xD912171C);
+        c.drawRect(0, 0, w, 82, p);
+        label(c, "ROAD LEGENDS", 26, 35, 25, Color.WHITE);
+        label(c, VEHICLES[ownedVehicle].name, 26, 65, 16, Color.LTGRAY);
+        label(c, "₪" + cash, w - 145, 38, 21, Color.WHITE);
+
         if (wanted > 0) {
-            text(c, "חיפוש " + stars(Math.min(5, wanted)), w - 160, 68, 18, Color.rgb(255, 215, 80));
+            String stars = "";
+            for (int i = 0; i < wanted; i++) stars += "★";
+            label(c, "חיפוש " + stars, w - 185, 66, 17, Color.rgb(255, 214, 80));
         } else {
-            text(c, "הכל שקט", w - 160, 68, 17, Color.LTGRAY);
+            label(c, "הכול רגוע", w - 150, 66, 16, Color.LTGRAY);
         }
 
-        // Left control pad.
-        button(c, 32, h - 150, 92, 58, "◀");
-        button(c, 132, h - 150, 92, 58, "▲");
-        button(c, 232, h - 150, 92, 58, "▶");
+        // Left control cluster.
+        button(c, 28, h - 152, 76, 54, "◀");
+        button(c, 112, h - 190, 76, 54, "▲");
+        button(c, 112, h - 114, 76, 54, "▼");
+        button(c, 196, h - 152, 76, 54, "▶");
 
-        // Right actions.
-        button(c, w - 350, h - 150, 98, 58, inCar ? "יציאה" : "רכב");
-        button(c, w - 245, h - 150, 98, 58, "גראז'");
-        button(c, w - 140, h - 150, 108, 58, "ציוד");
+        // Action cluster.
+        button(c, w - 332, h - 152, 96, 54, inVehicle ? "יציאה" : "כניסה");
+        button(c, w - 228, h - 152, 96, 54, "מוסך");
+        button(c, w - 124, h - 152, 96, 54, "תפריט");
+        button(c, w - 228, h - 90, 96, 50, "זום");
+        button(c, w - 124, h - 90, 96, 50, "אירוע");
 
-        button(c, 32, h - 78, 92, 52, inCar ? "▼" : "↑");
-        button(c, 132, h - 78, 92, 52, "זום");
-        button(c, 232, h - 78, 92, 52, "אירוע");
-
-        text(c, "עולם פתוח • נהיגה • נמל • שדה תעופה • שטח", 28, 105, 18, Color.WHITE);
+        label(c, inVehicle ? "נהיגה" : "ברגל", w / 2f - 30, h - 28, 16, Color.WHITE);
+        label(c, "עולם פתוח  •  עיר  •  נמל  •  שטח  •  שדה תעופה", 28, 112, 16, Color.WHITE);
     }
 
     private void drawGarage(Canvas c) {
-        overlay(c);
-        float w = getWidth(), h = getHeight();
-        panel(c, 55, 70, w - 55, h - 85);
-        text(c, "מוסך ורכבים", 85, 115, 32, Color.WHITE);
-        text(c, "רכב נוכחי: " + VEHICLES[vehicleIndex], 85, 150, 20, Color.LTGRAY);
-        int cols = 3;
+        dim(c);
+        float w = getWidth();
+        float h = getHeight();
+
+        panel(c, 45, 55, w - 45, h - 55);
+        label(c, "מוסך", 80, 100, 32, Color.WHITE);
+        label(c, "בחר רכב לרכישה או החלפה", 80, 130, 17, Color.LTGRAY);
+
         for (int i = 0; i < VEHICLES.length; i++) {
-            int col = i % cols, row = i / cols;
-            float x = 85 + col * 240, y = 195 + row * 105;
-            button(c, x, y, 215, 78, VEHICLES[i] + "  ₪" + PRICES[i]);
+            int col = i % 3;
+            int row = i / 3;
+            float x = 75 + col * 250;
+            float y = 155 + row * 78;
+            int price = VEHICLES[i].price;
+            String cost = price == 0 ? "שלך" : "₪" + price;
+            button(c, x, y, 225, 62, VEHICLES[i].name + "  " + cost);
+            label(c, VEHICLES[i].subtitle, x, y + 56, 13, Color.LTGRAY);
         }
-        button(c, w - 190, h - 130, 120, 58, "סגור");
+
+        button(c, w - 170, h - 110, 110, 55, "סגור");
     }
 
-    private void drawInventory(Canvas c) {
-        overlay(c);
-        float w = getWidth(), h = getHeight();
-        panel(c, 100, 80, w - 100, h - 90);
-        text(c, "ציוד", 135, 125, 34, Color.WHITE);
-        for (int i = 0; i < GEAR.length; i++) {
-            float y = 180 + i * 58;
-            button(c, 140, y, 180, 45, GEAR[i]);
-            text(c, i == 2 ? "לצניחה" : "ציוד למשחק", 350, y + 30, 17, Color.LTGRAY);
-        }
-        button(c, w - 210, h - 135, 130, 58, "סגור");
+    private void drawMenu(Canvas c) {
+        dim(c);
+        float w = getWidth();
+        float h = getHeight();
+
+        panel(c, 90, 70, w - 90, h - 70);
+        label(c, "הגדרות משחק", w / 2f - 90, 125, 30, Color.WHITE);
+        button(c, w / 2f - 160, 175, 320, 62, "ממשק עברי מלא");
+        button(c, w / 2f - 160, 250, 320, 62, "שליטה פשוטה");
+        button(c, w / 2f - 160, 325, 320, 62, cameraZoom > 1f ? "זום: רחוק" : "זום: רגיל");
+        button(c, w / 2f - 160, h - 145, 320, 62, "חזרה למשחק");
     }
 
     private void drawJail(Canvas c) {
-        overlay(c);
-        float w = getWidth(), h = getHeight();
-        panel(c, 130, 100, w - 130, h - 110);
-        text(c, "המעצר הסתיים", w/2f - 115, 155, 32, Color.WHITE);
-        text(c, "המשטרה תפסה אותך והעבירה אותך לכלא.", w/2f - 255, 205, 20, Color.LTGRAY);
-        text(c, "הבריחה כאן היא חלק מכניקת המשחק בלבד.", w/2f - 245, 238, 18, Color.LTGRAY);
-        button(c, w/2f - 100, h - 200, 200, 70, "שחרור");
+        dim(c);
+        float w = getWidth();
+        float h = getHeight();
+
+        panel(c, 120, 110, w - 120, h - 110);
+        label(c, "נעצרת!", w / 2f - 55, 165, 34, Color.WHITE);
+        label(c, "המרדף הסתיים והשוטרים לקחו אותך לתחנה.", w / 2f - 230, 210, 19, Color.LTGRAY);
+        label(c, "המשחק ממשיך אחרי השחרור.", w / 2f - 145, 242, 17, Color.LTGRAY);
+        button(c, w / 2f - 120, h - 205, 240, 70, "שחרור");
     }
 
-    private void overlay(Canvas c) {
-        p.setColor(0xAA000000);
-        c.drawRect(0,0,getWidth(),getHeight(),p);
-    }
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() != MotionEvent.ACTION_UP) return true;
 
-    private void panel(Canvas c, float l, float t, float r, float b) {
-        p.setColor(0xF02A3038);
-        c.drawRoundRect(new RectF(l,t,r,b), 24, 24, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2);
-        p.setColor(0xFF7A8695);
-        c.drawRoundRect(new RectF(l,t,r,b), 24, 24, p);
-        p.setStyle(Paint.Style.FILL);
-    }
+        float x = event.getX();
+        float y = event.getY();
+        float w = getWidth();
+        float h = getHeight();
 
-    private void button(Canvas c, float x, float y, float bw, float bh, String label) {
-        p.setColor(0xDD1D252D);
-        c.drawRoundRect(new RectF(x,y,x+bw,y+bh), 16, 16, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2);
-        p.setColor(0xFF6E7A88);
-        c.drawRoundRect(new RectF(x,y,x+bw,y+bh), 16, 16, p);
-        p.setStyle(Paint.Style.FILL);
-        textCentered(c, label, x + bw/2, y + bh/2 + 7, 18, Color.WHITE);
-    }
-
-    private String stars(int count) {
-        StringBuilder s = new StringBuilder();
-        for (int i = 0; i < count; i++) s.append("★");
-        return s.toString();
-    }
-
-    private void text(Canvas c, String s, float x, float y, float size, int color) {
-        p.setTypeface(Typeface.create("sans", Typeface.NORMAL));
-        p.setTextSize(size);
-        p.setColor(color);
-        p.setStyle(Paint.Style.FILL);
-        c.drawText(s, x, y, p);
-    }
-
-    private void textCentered(Canvas c, String s, float x, float y, float size, int color) {
-        p.setTextSize(size);
-        p.setTypeface(Typeface.create("sans", Typeface.BOLD));
-        float tw = p.measureText(s);
-        text(c, s, x - tw/2, y, size, color);
-    }
-
-    @Override public boolean onTouchEvent(MotionEvent e) {
-        if (e.getAction() != MotionEvent.ACTION_UP) return true;
-        float x = e.getX(), y = e.getY(), w = getWidth(), h = getHeight();
-
-        if (mode == 3) {
-            if (y > h - 230 && y < h - 100) {
-                mode = 0;
+        if (mode == MODE_JAIL) {
+            if (y > h - 230) {
                 wanted = 0;
+                wantedUntil = 0;
+                mode = MODE_GAME;
+                playerX = 0;
+                playerY = -50;
             }
             return true;
         }
 
-        if (mode == 1) {
-            if (y > h - 155) {
-                mode = 0;
+        if (mode == MODE_GARAGE) {
+            if (y > h - 145) {
+                mode = MODE_GAME;
                 return true;
             }
-            int cols = 3;
             for (int i = 0; i < VEHICLES.length; i++) {
-                int col = i % cols, row = i / cols;
-                float bx = 85 + col * 240, by = 195 + row * 105;
-                if (x >= bx && x <= bx + 215 && y >= by && y <= by + 78) {
-                    if (cash >= PRICES[i]) {
-                        cash -= PRICES[i];
-                        vehicleIndex = i;
+                int col = i % 3;
+                int row = i / 3;
+                float bx = 75 + col * 250;
+                float by = 155 + row * 78;
+                if (x >= bx && x <= bx + 225 && y >= by && y <= by + 62) {
+                    if (VEHICLES[i].price == 0 || cash >= VEHICLES[i].price) {
+                        if (i != ownedVehicle && VEHICLES[i].price > 0) {
+                            cash -= VEHICLES[i].price;
+                        }
+                        ownedVehicle = i;
                     }
-                    mode = 0;
+                    mode = MODE_GAME;
                     return true;
                 }
             }
             return true;
         }
 
-        if (mode == 2) {
-            if (y > h - 160) mode = 0;
+        if (mode == MODE_MENU) {
+            if (y > h - 175) {
+                mode = MODE_GAME;
+            } else if (y >= 315 && y <= 400) {
+                cameraZoom = cameraZoom > 1f ? 1f : 1.28f;
+            }
             return true;
         }
 
-        if (y >= h - 175 && y <= h - 75) {
-            if (x < 340) {
-                if (x < 115) vx -= 480;
-                else if (x < 225) vy -= 480;
-                else vx += 480;
-                wanted = Math.max(wanted, 1);
-                heatTimer = 5000;
-            } else if (x > w - 365 && x < w - 250) {
-                inCar = !inCar;
-            } else if (x > w - 255 && x < w - 145) {
-                mode = 1;
-            } else if (x > w - 150) {
-                mode = 2;
-            }
-        } else if (y > h - 90 && y < h) {
-            if (x >= 125 && x <= 235) zoom = zoom == 1f ? 1.25f : 1f;
-            else if (x >= 235 && x <= 340) {
-                wanted = Math.max(wanted, 2);
-                heatTimer = 8000;
-            }
-            else if (x < 125) {
-                vy += 480;
-            }
-        } else if (y < 74 && x < 260) {
-            mode = 0;
+        // Direction buttons.
+        if (y >= h - 215 && y <= h - 72) {
+            if (x < 105) inputX = -1f;
+            else if (x >= 195 && x < 285) inputX = 1f;
+            else if (x >= 100 && x < 195 && y < h - 130) inputY = -1f;
+            else if (x >= 100 && x < 195) inputY = 1f;
         }
 
-        // A patrol catches the player if the wanted level lasts long enough.
-        if (wanted >= 3 && heatTimer > 0 && Math.abs(vx) + Math.abs(vy) < 70) {
-            mode = 3;
-            vx = vy = 0;
+        // Exit / enter nearest vehicle.
+        if (x > w - 345 && x < w - 230 && y > h - 175) {
+            if (inVehicle) {
+                inVehicle = false;
+            } else {
+                WorldVehicle nearest = nearestUsableVehicle();
+                if (nearest != null) {
+                    ownedVehicle = nearest.type >= 0 && nearest.type < VEHICLES.length ? nearest.type : ownedVehicle;
+                    inVehicle = true;
+                }
+            }
+        } else if (x > w - 240 && x < w - 125 && y > h - 175) {
+            mode = MODE_GARAGE;
+        } else if (x > w - 140 && y > h - 175) {
+            mode = MODE_MENU;
+        } else if (x > w - 240 && x < w - 125 && y > h - 112) {
+            cameraZoom = cameraZoom > 1f ? 1f : 1.28f;
+        } else if (x > w - 140 && y > h - 112) {
+            wanted = Math.min(5, wanted + 1);
+            wantedUntil = System.currentTimeMillis() + 4500L;
         }
+
         return true;
     }
 
-    private static class Entity {
-        final float x, y;
+    private WorldVehicle nearestUsableVehicle() {
+        WorldVehicle best = null;
+        float bestDistance = 165f;
+        for (WorldVehicle v : vehicles) {
+            float dx = v.x - playerX;
+            float dy = v.y - playerY;
+            float d = (float)Math.sqrt(dx * dx + dy * dy);
+            if (d < bestDistance && (v.type >= 0 && v.type < VEHICLES.length)) {
+                bestDistance = d;
+                best = v;
+            }
+        }
+        return best;
+    }
+
+    private static float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private void fill(Canvas c, int color) {
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(color);
+    }
+
+    private void label(Canvas c, String text, float x, float y, float size, int color) {
+        p.setTypeface(Typeface.create("sans", Typeface.BOLD));
+        p.setTextSize(size);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(color);
+        c.drawText(text, x, y, p);
+    }
+
+    private void button(Canvas c, float x, float y, float width, float height, String text) {
+        fill(c, 0xE51A2128);
+        c.drawRoundRect(new RectF(x, y, x + width, y + height), 15, 15, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(2);
+        p.setColor(0xFF738091);
+        c.drawRoundRect(new RectF(x, y, x + width, y + height), 15, 15, p);
+        p.setStyle(Paint.Style.FILL);
+        p.setTypeface(Typeface.create("sans", Typeface.BOLD));
+        p.setTextSize(16);
+        p.setColor(Color.WHITE);
+        float tw = p.measureText(text);
+        c.drawText(text, x + (width - tw) / 2f, y + height / 2f + 6f, p);
+    }
+
+    private void panel(Canvas c, float l, float t, float r, float b) {
+        fill(c, 0xF02A3038);
+        c.drawRoundRect(new RectF(l, t, r, b), 25, 25, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(2);
+        p.setColor(0xFF7B8796);
+        c.drawRoundRect(new RectF(l, t, r, b), 25, 25, p);
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    private void dim(Canvas c) {
+        fill(c, 0xAA000000);
+        c.drawRect(0, 0, getWidth(), getHeight(), p);
+    }
+
+    private static class VehicleSpec {
+        final String name;
+        final String subtitle;
+        final int price;
+        final int color;
         final int type;
-        Entity(float x, float y, int type) {
+
+        VehicleSpec(String name, String subtitle, int price, int color, int type) {
+            this.name = name;
+            this.subtitle = subtitle;
+            this.price = price;
+            this.color = color;
+            this.type = type;
+        }
+    }
+
+    private static class WorldVehicle {
+        final String name;
+        float x;
+        float y;
+        final int color;
+        final int type;
+        final boolean traffic;
+        final float dirX;
+        final float dirY;
+
+        WorldVehicle(String name, float x, float y, int color, int type, boolean traffic) {
+            this.name = name;
             this.x = x;
             this.y = y;
+            this.color = color;
             this.type = type;
+            this.traffic = traffic;
+            this.dirX = traffic ? (x < 0 ? 1f : -1f) : 0f;
+            this.dirY = traffic ? (y < 0 ? 1f : -1f) : 0f;
+        }
+    }
+
+    private static class Police {
+        float x;
+        float y;
+        final float dirX;
+        final float dirY;
+
+        Police(float x, float y) {
+            this.x = x;
+            this.y = y;
+            this.dirX = 0.25f;
+            this.dirY = 0.18f;
         }
     }
 }
