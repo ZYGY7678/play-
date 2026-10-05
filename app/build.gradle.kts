@@ -2,6 +2,16 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
-android { namespace = "com.zygy.streetlife"; compileSdk = 35
-    defaultConfig { applicationId = "com.zygy.streetlife"; minSdk = 23; targetSdk = 35; versionCode = 1; versionName = "1.0" }
+
+android {
+    namespace = "com.zygy.wallmix"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.zygy.wallmix"
+        minSdk = 28
+        targetSdk = 35
+        versionCode = 2
+        versionName = "1.0"
+    }
 }
