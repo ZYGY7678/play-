@@ -26,7 +26,9 @@ import java.util.Random;
 public final class GameView extends FrameLayout {
   private final World world;
   private final HUD hud;
-  @Override protected void onDetachedFromWindow(){ world.r.releaseAudio(); super.onDetachedFromWindow();}\n\n  public GameView(Context c){
+  @Override protected void onDetachedFromWindow(){ world.r.releaseAudio(); super.onDetachedFromWindow();}
+
+  public GameView(Context c){
     super(c);
     world=new World(c);
     hud=new HUD(c,world.r);
