@@ -26,7 +26,7 @@ import java.util.Random;
 public final class GameView extends FrameLayout {
   private final World world;
   private final HUD hud;
-  public GameView(Context c){
+  @Override protected void onDetachedFromWindow(){ world.r.releaseAudio(); super.onDetachedFromWindow();}\n\n  public GameView(Context c){
     super(c);
     world=new World(c);
     hud=new HUD(c,world.r);
@@ -48,16 +48,16 @@ public final class GameView extends FrameLayout {
     private FloatBuffer cube;
     private int pr,ap,an,um,uc,ul;
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
-    private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>();
+    private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>(); private final List<PoliceUnit> policeUnits=new ArrayList<>(); private final GameAudio audio=new GameAudio();
     private final Random rnd=new Random(77); private final Random eventRnd=new Random(20261005L);
-    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0; int missionMilestone=0;
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0,footstepTimer=0,shotCooldown=0; int missionMilestone=0;
     boolean gas,brake,left,right,onFoot,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
     R(){
       for(int i=0;i<42;i++)objs.add(new Obj(-95+rnd.nextFloat()*190,-40+rnd.nextFloat()*83,5+rnd.nextFloat()*4,8+rnd.nextFloat()*18));
       for(int i=0;i<18;i++)traffic.add(new Obj(-82+rnd.nextFloat()*164,-28+rnd.nextFloat()*58,3.8f,6));
-      for(int i=0;i<10;i++)enemies.add(new Enemy(-70+(i%5)*35,18+(i/5)*17,i%4));
+      for(int i=0;i<10;i++)enemies.add(new Enemy(-70+(i%5)*35,18+(i/5)*17,i%4)); for(int i=0;i<5;i++)policeUnits.add(new PoliceUnit(-38+i*19,10,i));
     }
     public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig c){
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);
@@ -90,7 +90,7 @@ public final class GameView extends FrameLayout {
       for(int i=0;i<(quality==0?22:40);i++){Obj o=objs.get((i*3)%objs.size());box(o.x+6,o.h*.20f,o.z+7,.45f,3.2f,.45f,new float[]{.24f,.14f,.08f,1});box(o.x+6,4,o.z+7,3.8f,3.8f,3.8f,new float[]{.07f,.30f,.13f,1});}
       for(Obj o:traffic)car(o.x,o.z,0);
       for(Enemy e:enemies) enemy(e);
-      for(int i=0;i<5;i++){Obj q=new Obj(-50+i*20,-28-i*5,3.9f,6);if(wanted>=2){float dx=x-q.x,dz=z-q.z,l=(float)Math.hypot(dx,dz)+.01f;q.x+=dx/l*(6+wanted*1.7f)*dt;q.z+=dz/l*(6+wanted*1.7f)*dt;}police(q.x,q.z);}
+            for(PoliceUnit p:policeUnits) police(p);
       if(onFoot)player();else car(x,z,vehicle);
     }
     void update(float dt){
@@ -143,6 +143,15 @@ public final class GameView extends FrameLayout {
       }
       time+=dt*.18;if(time>=24)time-=24;
       for(Obj o:traffic){o.z+=(o.x<0?1:-1)*o.h*dt;if(o.z>65)o.z=-60;if(o.z<-65)o.z=65;}
+      shotCooldown=Math.max(0,shotCooldown-dt);
+      if(onFoot && Math.abs(spd)>.7f){
+        footstepTimer-=dt;
+        if(footstepTimer<=0){audio.playFootstep(Math.abs(spd)>2.0f);footstepTimer=Math.abs(spd)>2.0f?.24f:.40f;}
+      } else footstepTimer=0;
+      for(PoliceUnit p:policeUnits){
+        p.update(dt,x,z,yaw,wanted,difficultyTier());
+        if(p.doorEvent){p.doorEvent=false;audio.playDoor();audio.playShout();}
+      }
     }
     void car(float X,float Z,int t){float[] c=color(t);box(X,.58f,Z,4.2f,.95f,6.7f,c);box(X,1.25f,Z-.2f,3,.8f,3.35f,new float[]{.04f,.07f,.09f,1});for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})box(X+sx*1.7f,.38f,Z+sz*2.35f,.45f,.58f,1.05f,new float[]{.02f,.02f,.02f,1});}
     void enemy(Enemy e){
@@ -165,7 +174,27 @@ public final class GameView extends FrameLayout {
       box(e.x,2.72f*scale,e.z,1.0f*scale,.07f*scale,.08f*scale,new float[]{.07f,.07f,.08f,1});
       box(e.x-.5f*scale+hp*.5f*scale,2.73f*scale,e.z,hp*1.0f*scale,.09f*scale,.09f*scale,new float[]{.30f,.72f,.35f,1});
     }
-    void police(float X,float Z){car(X,Z,5);box(X,1.75f,Z,1,.15f,.62f,new float[]{.08f,.20f,.78f,1});}
+    void police(PoliceUnit p){
+      float[] body={.08f,.10f,.12f,1};
+      box(p.x,.58f,p.z,4.3f,.96f,6.8f,body);
+      box(p.x,1.24f,p.z-.2f,3.05f,.80f,3.38f,new float[]{.04f,.07f,.09f,1});
+      for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})box(p.x+sx*1.72f,.38f,p.z+sz*2.35f,.45f,.58f,1.05f,new float[]{.018f,.018f,.02f,1});
+      box(p.x-.62f,1.58f,p.z+2.45f,1.05f,.11f,.22f,new float[]{.06f,.30f,.95f,1});
+      box(p.x+.62f,1.58f,p.z+2.45f,1.05f,.11f,.22f,new float[]{.92f,.10f,.12f,1});
+      float sideX=(float)Math.cos(p.yaw),sideZ=-(float)Math.sin(p.yaw);
+      float open=1.0f+p.door*.55f;
+      box(p.x+sideX*2.08f*open,.95f,p.z+sideZ*2.08f,.10f,1.28f,1.65f,new float[]{.07f,.08f,.10f,1});
+      if(p.officer>.02f){
+        float ox=p.x+sideX*(2.15f+1.0f*p.officer),oz=p.z+sideZ*(2.0f+1.0f*p.officer);
+        float stride=(float)Math.sin(p.anim*10.0f)*.18f*p.officer;
+        box(ox,.98f,oz,.90f,1.75f,.62f,new float[]{.045f,.07f,.12f,1});
+        box(ox,2.13f,oz,.52f,.55f,.52f,new float[]{.46f,.31f,.22f,1});
+        box(ox-.31f,.98f,oz+stride,.22f,1.40f,.30f,new float[]{.025f,.03f,.04f,1});
+        box(ox+.31f,.98f,oz-stride,.22f,1.40f,.30f,new float[]{.025f,.03f,.04f,1});
+        box(ox-.52f,1.42f,oz,.20f,.95f,.25f,new float[]{.04f,.06f,.10f,1});
+        box(ox+.52f,1.42f,oz,.20f,.95f,.25f,new float[]{.04f,.06f,.10f,1});
+      }
+    }
     void player(){box(x,1.1f,z,1,1.9f,.65f,new float[]{.10f,.28f,.50f,1});box(x,2.25f,z,.55f,.58f,.55f,new float[]{.62f,.42f,.30f,1});box(x-.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});box(x+.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});}
     void box(float X,float Y,float Z,float sx,float sy,float sz,float[] col){
       Matrix.setIdentityM(M,0);Matrix.translateM(M,0,X,Y,Z);Matrix.scaleM(M,0,sx/2,sy/2,sz/2);
@@ -183,7 +212,7 @@ public final class GameView extends FrameLayout {
     int link(int a,int b){int q=GLES20.glCreateProgram();GLES20.glAttachShader(q,a);GLES20.glAttachShader(q,b);GLES20.glLinkProgram(q);return q;}
     float[] color(int i){switch(i%8){case 1:return new float[]{.16f,.44f,.92f,1};case 2:return new float[]{.12f,.44f,.20f,1};case 3:return new float[]{.70f,.35f,.16f,1};case 4:return new float[]{.72f,.74f,.78f,1};case 5:return new float[]{.16f,.22f,.19f,1};case 6:return new float[]{.72f,.14f,.13f,1};case 7:return new float[]{.12f,.56f,.66f,1};default:return new float[]{.72f,.18f,.15f,1};}}
 
-    int difficultyTier(){
+    void releaseAudio(){audio.release();}\n    int difficultyTier(){
       int t=1+(int)(missionTime/28f);
       return Math.max(1,Math.min(6,t));
     }
@@ -203,6 +232,26 @@ public final class GameView extends FrameLayout {
       crimeCooldown=2.2f;
       wanted=Math.min(5,wanted+1);
       wantedT=7.0f;
+      audio.playShout();
+    }
+    boolean hasNearbyEnemy(){
+      for(Enemy e:enemies) if(!e.defeated && Math.hypot(e.x-x,e.z-z)<5.5f) return true;
+      return false;
+    }
+    void resolveCombat(){
+      Enemy best=null;float bestD=5.5f;
+      for(Enemy e:enemies){
+        if(e.defeated) continue;
+        float d=(float)Math.hypot(e.x-x,e.z-z);
+        if(d<bestD){bestD=d;best=e;}
+      }
+      if(best==null){commitCrimeEvent();return;}
+      best.hp--;
+      if(best.hp<=0){best.defeated=true;defeated++;cash+=rewardFor(best.type);}
+      else cash+=45+difficultyTier()*12;
+      playerHealth=Math.min(100,playerHealth+5);
+      wanted=Math.min(5,Math.max(wanted,1));
+      wantedT=6.5f;
     }
     void startRobbery(){
       if(robberyRunning) return;
@@ -235,8 +284,55 @@ public final class GameView extends FrameLayout {
     int difficulty(){return difficultyTier();} String difficultyText(){return difficultyName();} int defeated(){return defeated;} boolean robberyRunning(){return robberyRunning;} int robberyReward(){return robberyReward;}
     String mission(){if(wanted>0)return"מרדף פעיל • הימלט מהאזור";if(missionTime<24)return"משימת פתיחה • היכרות עם העיר";if(missionTime<52)return"מרוץ שכונתי • השג את נקודת הסיום";if(missionTime<84)return"סיור בנמל • הגעה לרציף";if(missionTime<120)return"קו החוף • חקור את האזור";return"עולם פתוח • בחר יעד משלך";}
     void setGas(boolean b){gas=b;}void setBrake(boolean b){brake=b;}void setLeft(boolean b){left=b;}void setRight(boolean b){right=b;}
-    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){startRobbery();} void robbery(){startRobbery();}
+    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}
+    void trigger(){
+      if(shotCooldown>0) return;
+      if(hasNearbyEnemy()){
+        shotCooldown=.65f;
+        audio.playShot(difficultyTier()>=4);
+        commitCrimeEvent();
+        resolveCombat();
+      } else {
+        startRobbery();
+      }
+    }
+    void robbery(){startRobbery();}
     void quality(int q){quality=Math.max(0,Math.min(2,q));}boolean buy(int i){int[]p=prices();if(i==vehicle)return true;if(cash<p[i])return false;cash-=p[i];vehicle=i;spd=0;return true;}
+    static final class PoliceUnit{
+      float x,z,yaw,speed,door,officer,anim,phase,homeX,homeZ; int index; boolean doorEvent;
+      PoliceUnit(float x,float z,int index){this.x=x;this.z=z;this.homeX=x;this.homeZ=z;this.index=index;this.phase=index*1.7f;}
+      void update(float dt,float px,float pz,float pyaw,int wanted,int tier){
+        doorEvent=false; anim+=dt;
+        if(wanted<2){
+          officer=Math.max(0,officer-dt*1.8f);door=Math.max(0,door-dt*1.8f);
+          steer(homeX,homeZ,dt,3.0f);
+          return;
+        }
+        float lane=(index-2)*2.4f;
+        float tx=px+lane;
+        float tz=Math.max(-15f,Math.min(34f,pz-pyaw*0f));
+        float d=(float)Math.hypot(tx-x,tz-z);
+        if(d>7.0f){
+          steer(tx,tz,dt,6.0f+wanted*1.4f);
+          door=Math.max(0,door-dt*3.2f);
+          officer=Math.max(0,officer-dt*3.0f);
+        } else {
+          speed=Math.max(0,speed-dt*7f);
+          if(door<1f){door=Math.min(1f,door+dt*1.25f);if(door>=.92f)doorEvent=true;}
+          if(door>.85f)officer=Math.min(1f,officer+dt*1.05f);
+        }
+      }
+      void steer(float tx,float tz,float dt,float max){
+        float dx=tx-x,dz=tz-z,d=(float)Math.hypot(dx,dz);
+        if(d<.2f){speed=Math.max(0,speed-dt*5f);return;}
+        float target=(float)Math.atan2(dx,dz),diff=wrap(target-yaw);
+        yaw+=Math.max(-dt*2.6f,Math.min(dt*2.6f,diff));
+        speed+=(max-speed)*Math.min(1,dt*2.6f);
+        x+=Math.sin(yaw)*speed*dt;z+=Math.cos(yaw)*speed*dt;
+        x=Math.max(-98,Math.min(98,x));z=Math.max(-16,Math.min(38,z));
+      }
+      float wrap(float a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
+    }
     static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
     static final class Enemy{float x,z;int type,hp,maxHp,state=0;float phase;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
   }
@@ -262,7 +358,7 @@ public final class GameView extends FrameLayout {
       round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));if(r.robberyRunning())t(c,"שוד וירטואלי פעיל • תגמול ₪ "+money(r.robberyReward()),38,202,12,Color.rgb(244,214,106));
       ctl(c,28,h-118,72,62,"◀");ctl(c,112,h-162,72,62,"▲");ctl(c,112,h-74,72,62,"▼");ctl(c,196,h-118,72,62,"▶");
       ctl(c,w-365,h-118,90,62,r.onFoot?"רכב":"יציאה");ctl(c,w-263,h-118,90,62,"מוסך");ctl(c,w-161,h-118,90,62,"מפה");
-      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,r.robberyRunning()?"מתבצע":"שוד כסף");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"פעילות אסורה מעלה את רמת החיפוש • ▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-205,h-18,12,Color.LTGRAY);
+      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,r.robberyRunning()?"מתבצע":"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"פעילות אסורה מעלה את רמת החיפוש • ▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-205,h-18,12,Color.LTGRAY);
     }
     void intro(Canvas c,int w,int h){fill(c,0x77000000);c.drawRect(0,0,w,h,p);round(c,w/2f-265,h/2f-96,w/2f+265,h/2f+96,0xF01A222A,28);t(c,"ברוכים הבאים ל־ROAD LEGENDS",w/2f-212,h/2f-38,23,Color.WHITE);t(c,"תלת־ממד • עיר • נמל • שטח • שדה תעופה",w/2f-190,h/2f-5,15,Color.LTGRAY);t(c,"התחל במשימת הפתיחה, פגוש יריבים והתקדם לרכבים ולמוסך",w/2f-220,h/2f+25,15,Color.LTGRAY);primary(c,w/2f-105,h/2f+46,210,50,"הבנתי");}
     void garage(Canvas c,int w,int h){fill(c,0xA8000000);c.drawRect(0,0,w,h,p);round(c,26,24,w-26,h-24,0xF019222A,28);t(c,"המוסך שלי",52,68,30,Color.WHITE);t(c,"קנה והחלף כלי תחבורה",52,95,14,Color.LTGRAY);String[] n={"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"};String[] s={"ספורט","מרוץ","שטח","משאית","אופנוע","ממוגן","כלי שיט","מסוק"};float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float x=50+col*cw,y=118+row*92;round(c,x,y,x+cw-14,y+76,i==r.vehicle?0xFF314B60:0xFF202830,16);t(c,n[i],x+12,y+27,14,Color.WHITE);t(c,s[i],x+12,y+49,12,Color.LTGRAY);int q=r.prices()[i];t(c,q==0?"שלך":"₪ "+money(q),x+12,y+68,12,Color.rgb(244,214,106));}primary(c,w-170,h-78,120,48,"חזרה");}
@@ -283,7 +379,7 @@ public final class GameView extends FrameLayout {
       float x=e.getX(),y=e.getY();int w=getWidth(),h=getHeight();boolean up=e.getAction()==MotionEvent.ACTION_UP;
       if(e.getAction()!=MotionEvent.ACTION_DOWN&& !up)return true;
       if(mode==0&&up){if(x>w-305&&y>h-205&&y<h-110){mode=1;intro=true;}else if(x>w-305&&y>h-115){mode=2;}else if(x>w-175&&y>h-115){mode=4;}invalidate();return true;}
-      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.robbery();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
+      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.trigger();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
       if(mode==2&&up){if(y>h-100){mode=1;invalidate();return true;}float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float bx=50+col*cw,by=118+row*92;if(x>=bx&&x<=bx+cw-14&&y>=by&&y<=by+76){r.buy(i);invalidate();return true;}}}
       if((mode==3||mode==4)&&up&&y>h-110){mode=1;invalidate();return true;}
       if(mode==4&&up&&y>=145&&y<=205){r.quality(Math.max(0,Math.min(2,(int)((x-88)/120))));invalidate();return true;}return true;
