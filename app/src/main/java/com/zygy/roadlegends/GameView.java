@@ -49,9 +49,9 @@ public final class GameView extends FrameLayout {
     private int pr,ap,an,um,uc,ul;
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
     private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>();
-    private final Random rnd=new Random(77);
-    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0; int missionMilestone=0;
-    boolean gas,brake,left,right,onFoot,flash; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0;
+    private final Random rnd=new Random(77); private final Random eventRnd=new Random(20261005L);
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0; int missionMilestone=0;
+    boolean gas,brake,left,right,onFoot,flash,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
     R(){
@@ -107,24 +107,46 @@ public final class GameView extends FrameLayout {
       for(Enemy e:enemies){
         if(e.defeated) continue;
         float dx=x-e.x,dz=z-e.z,dist=(float)Math.hypot(dx,dz);
-        float aggro=9f+tier*2.2f;
-        if(dist<26f && dist>.05f){
-          float len=dist;
-          float enemySpeed=1.4f+e.type*.35f+tier*.25f;
-          e.x+=dx/len*enemySpeed*dt;
-          e.z+=dz/len*enemySpeed*dt;
+
+        if(wanted<=0){
+          e.state=0; // CALM
+          e.x+=Math.sin(e.phase+time)*.18f*dt;
+          e.z+=Math.cos(e.phase+time)*.18f*dt;
+          continue;
         }
-        if(dist<2.6f && combatCooldown<=0){
-          playerHealth-=6+tier*2;
-          combatCooldown=.85f;
-          if(playerHealth<=0){
-            playerHealth=100;
-            cash=Math.max(0,cash-450-tier*120);
-            x=0;z=4;spd=0;wanted=0;
+
+        if(wanted==1){
+          e.state=1; // ALERT: watches and keeps distance
+          if(dist<20f && dist>.05f){
+            float len=dist;
+            e.x-=dx/len*(1.0f+tier*.08f)*dt;
+            e.z-=dz/len*(1.0f+tier*.08f)*dt;
+          }
+        } else {
+          e.state=2; // CHASE
+          if(dist<30f && dist>.05f){
+            float len=dist;
+            float enemySpeed=1.25f+e.type*.30f+tier*.22f;
+            e.x+=dx/len*enemySpeed*dt;
+            e.z+=dz/len*enemySpeed*dt;
+          }
+          if(dist<2.6f && combatCooldown<=0){
+            playerHealth-=6+tier*2;
+            combatCooldown=.85f;
+            if(playerHealth<=0){
+              playerHealth=100;
+              cash=Math.max(0,cash-450-tier*120);
+              x=0;z=4;spd=0;wanted=0;
+            }
           }
         }
       }
       if(flash){flash=false;resolveCombat();}
+      crimeCooldown=Math.max(0,crimeCooldown-dt);
+      if(robberyRunning){
+        robberyTimer-=dt;
+        if(robberyTimer<=0) finishRobbery();
+      }
       time+=dt*.18;if(time>=24)time-=24;
       for(Obj o:traffic){o.z+=(o.x<0?1:-1)*o.h*dt;if(o.z>65)o.z=-60;if(o.z<-65)o.z=65;}
     }
@@ -182,26 +204,28 @@ public final class GameView extends FrameLayout {
     int missionReward(int milestone){
       switch(milestone){case 1:return 1500;case 2:return 2600;case 3:return 4200;case 4:return 6800;default:return 0;}
     }
-    void resolveCombat(){
-      Enemy best=null;float bestD=5.5f;
-      for(Enemy e:enemies){
-        if(e.defeated) continue;
-        float d=(float)Math.hypot(e.x-x,e.z-z);
-        if(d<bestD){bestD=d;best=e;}
-      }
-      if(best==null){ wanted=Math.min(5,wanted+1); wantedT=5; return; }
-      best.hp--;
-      if(best.hp<=0){
-        best.defeated=true;
-        defeated++;
-        cash+=rewardFor(best.type);
-      } else {
-        cash+=45 + difficultyTier()*12;
-      }
-      playerHealth=Math.min(100,playerHealth+5);
-      // A clean win creates more pressure later rather than an immediate cash explosion.
-      wanted=Math.min(5,Math.max(wanted,1));
-      wantedT=6.5f;
+    void commitCrimeEvent(){
+      if(crimeCooldown>0) return;
+      crimeCooldown=2.2f;
+      wanted=Math.min(5,wanted+1);
+      wantedT=7.0f;
+    }
+    void startRobbery(){
+      if(robberyRunning) return;
+      robberyRunning=true;
+      robberyTimer=4.2f;
+      int tier=difficultyTier();
+      robberyReward=700+tier*260;
+      wanted=Math.min(5,wanted+1);
+      wantedT=8.0f;
+    }
+    void finishRobbery(){
+      if(!robberyRunning) return;
+      robberyRunning=false;
+      cash+=robberyReward;
+      robberyReward=0;
+      wanted=Math.min(5,wanted+(eventRnd.nextInt(4)==0?1:0));
+      wantedT=7.5f;
     }
     int missionReward(){
       if(missionTime<24f)return 1500;
@@ -214,13 +238,13 @@ public final class GameView extends FrameLayout {
     float cl(float v,float a,float b){return Math.max(a,Math.min(b,v));}
     String vname(){return new String[]{"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"}[vehicle];}
     int[] prices(){return new int[]{0,22000,32000,46000,14000,68000,28000,125000};}
-    int difficulty(){return difficultyTier();} String difficultyText(){return difficultyName();} int defeated(){return defeated;}
+    int difficulty(){return difficultyTier();} String difficultyText(){return difficultyName();} int defeated(){return defeated;} boolean robberyRunning(){return robberyRunning;} int robberyReward(){return robberyReward;}
     String mission(){if(wanted>0)return"מרדף פעיל • הימלט מהאזור";if(missionTime<24)return"משימת פתיחה • היכרות עם העיר";if(missionTime<52)return"מרוץ שכונתי • השג את נקודת הסיום";if(missionTime<84)return"סיור בנמל • הגעה לרציף";if(missionTime<120)return"קו החוף • חקור את האזור";return"עולם פתוח • בחר יעד משלך";}
     void setGas(boolean b){gas=b;}void setBrake(boolean b){brake=b;}void setLeft(boolean b){left=b;}void setRight(boolean b){right=b;}
-    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){flash=true;}
+    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){action=true;} void robbery(){startRobbery();}
     void quality(int q){quality=Math.max(0,Math.min(2,q));}boolean buy(int i){int[]p=prices();if(i==vehicle)return true;if(cash<p[i])return false;cash-=p[i];vehicle=i;spd=0;return true;}
     static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
-    static final class Enemy{float x,z;int type,hp,maxHp;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;}}
+    static final class Enemy{float x,z;int type,hp,maxHp,state=0;float phase;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
   }
 
   private static final class HUD extends View {
@@ -241,10 +265,10 @@ public final class GameView extends FrameLayout {
     void hud(Canvas c,int w,int h){
       round(c,18,16,w-18,94,0xC0091015,22);t(c,"ROAD LEGENDS",38,47,19,Color.WHITE);t(c,r.vname(),38,73,15,Color.LTGRAY);t(c,"₪ "+money(r.cash),w-190,48,22,Color.WHITE);t(c,Math.round(Math.abs(r.spd)*7.2f)+" קמ״ש",w-190,74,14,Color.LTGRAY);t(c,"קושי "+r.difficultyText(),w/2f-42,70,14,Color.LTGRAY);
       String want=r.wanted==0?"הכול רגוע":"חיפוש "+"★ ".repeat(Math.min(5,r.wanted));t(c,want,w/2f-42,49,15,r.wanted==0?Color.rgb(150,184,160):Color.rgb(255,214,74));
-      round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));
+      round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);t(c,"יריבים פעילים: "+(10-r.defeated())+"   •   קושי: "+r.difficultyText(),38,184,12,Color.rgb(208,170,105));if(r.robberyRunning())t(c,"שוד וירטואלי פעיל • תגמול ₪ "+money(r.robberyReward()),38,202,12,Color.rgb(244,214,106));
       ctl(c,28,h-118,72,62,"◀");ctl(c,112,h-162,72,62,"▲");ctl(c,112,h-74,72,62,"▼");ctl(c,196,h-118,72,62,"▶");
       ctl(c,w-365,h-118,90,62,r.onFoot?"רכב":"יציאה");ctl(c,w-263,h-118,90,62,"מוסך");ctl(c,w-161,h-118,90,62,"מפה");
-      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,"אקשן");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-125,h-18,13,Color.LTGRAY);
+      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,r.robberyRunning()?"מתבצע":"שוד כסף");t(c,"חיים "+Math.round(r.health())+"%   •   תגמול משימה ₪ "+money(r.missionReward()),w/2f-210,h-42,13,Color.LTGRAY);t(c,"פעילות אסורה מעלה את רמת החיפוש • ▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-205,h-18,12,Color.LTGRAY);
     }
     void intro(Canvas c,int w,int h){fill(c,0x77000000);c.drawRect(0,0,w,h,p);round(c,w/2f-265,h/2f-96,w/2f+265,h/2f+96,0xF01A222A,28);t(c,"ברוכים הבאים ל־ROAD LEGENDS",w/2f-212,h/2f-38,23,Color.WHITE);t(c,"תלת־ממד • עיר • נמל • שטח • שדה תעופה",w/2f-190,h/2f-5,15,Color.LTGRAY);t(c,"התחל במשימת הפתיחה, פגוש יריבים והתקדם לרכבים ולמוסך",w/2f-220,h/2f+25,15,Color.LTGRAY);primary(c,w/2f-105,h/2f+46,210,50,"הבנתי");}
     void garage(Canvas c,int w,int h){fill(c,0xA8000000);c.drawRect(0,0,w,h,p);round(c,26,24,w-26,h-24,0xF019222A,28);t(c,"המוסך שלי",52,68,30,Color.WHITE);t(c,"קנה והחלף כלי תחבורה",52,95,14,Color.LTGRAY);String[] n={"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"};String[] s={"ספורט","מרוץ","שטח","משאית","אופנוע","ממוגן","כלי שיט","מסוק"};float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float x=50+col*cw,y=118+row*92;round(c,x,y,x+cw-14,y+76,i==r.vehicle?0xFF314B60:0xFF202830,16);t(c,n[i],x+12,y+27,14,Color.WHITE);t(c,s[i],x+12,y+49,12,Color.LTGRAY);int q=r.prices()[i];t(c,q==0?"שלך":"₪ "+money(q),x+12,y+68,12,Color.rgb(244,214,106));}primary(c,w-170,h-78,120,48,"חזרה");}
@@ -265,7 +289,7 @@ public final class GameView extends FrameLayout {
       float x=e.getX(),y=e.getY();int w=getWidth(),h=getHeight();boolean up=e.getAction()==MotionEvent.ACTION_UP;
       if(e.getAction()!=MotionEvent.ACTION_DOWN&& !up)return true;
       if(mode==0&&up){if(x>w-305&&y>h-205&&y<h-110){mode=1;intro=true;}else if(x>w-305&&y>h-115){mode=2;}else if(x>w-175&&y>h-115){mode=4;}invalidate();return true;}
-      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.trigger();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
+      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.robbery();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
       if(mode==2&&up){if(y>h-100){mode=1;invalidate();return true;}float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float bx=50+col*cw,by=118+row*92;if(x>=bx&&x<=bx+cw-14&&y>=by&&y<=by+76){r.buy(i);invalidate();return true;}}}
       if((mode==3||mode==4)&&up&&y>h-110){mode=1;invalidate();return true;}
       if(mode==4&&up&&y>=145&&y<=205){r.quality(Math.max(0,Math.min(2,(int)((x-88)/120))));invalidate();return true;}return true;
