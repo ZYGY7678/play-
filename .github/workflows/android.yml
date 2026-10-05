@@ -21,29 +21,38 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - run: gradle :app:assembleDebug --stacktrace
+
+      - name: Generate temporary release signing key
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 32)"
+          STORE="$RUNNER_TEMP/roadlegends-release.keystore"
+          keytool -genkeypair -v \
+            -keystore "$STORE" \
+            -storepass "$PASS" \
+            -keypass "$PASS" \
+            -alias roadlegends \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Road Legends, OU=Build, O=Road Legends, L=Local, ST=Local, C=US"
+          echo "ROADLEGENDS_STORE_FILE=$STORE" >> "$GITHUB_ENV"
+          echo "ROADLEGENDS_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "ROADLEGENDS_KEY_ALIAS=roadlegends" >> "$GITHUB_ENV"
+          echo "ROADLEGENDS_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build signed APK
+        run: gradle :app:assembleRelease --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
-          name: road-legends-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: road-legends-android9-fixed
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
 
-      - name: Publish APK as base64 build artifact
-        if: success()
+      - name: Verify APK signature and package
         run: |
-          set -e
-          base64 -w 0 app/build/outputs/apk/debug/app-debug.apk > /tmp/road-legends-debug.apk.b64
-          echo "$GITHUB_SHA" > /tmp/road-legends-build-sha.txt
-          git fetch origin build-artifacts:build-artifacts 2>/dev/null || true
-          if git show-ref --verify --quiet refs/heads/build-artifacts; then
-            git switch build-artifacts
-          else
-            git switch --orphan build-artifacts
-            git rm -rf . >/dev/null 2>&1 || true
-          fi
-          cp /tmp/road-legends-debug.apk.b64 RoadLegends-debug.apk.b64
-          cp /tmp/road-legends-build-sha.txt RoadLegends-build-sha.txt
-          git add RoadLegends-debug.apk.b64 RoadLegends-build-sha.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Publish verified Road Legends APK" || true
-          git push origin HEAD:build-artifacts
+          set -euo pipefail
+          jarsigner -verify -verbose app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/apk/release/app-release.apk
+          ls -lh app/build/outputs/apk/release/app-release.apk
