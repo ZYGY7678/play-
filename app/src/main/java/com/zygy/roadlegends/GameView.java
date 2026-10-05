@@ -3,819 +3,181 @@ package com.zygy.roadlegends;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
+import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
-
+import android.widget.FrameLayout;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
-public class GameView extends View {
-    private static final int MODE_GAME = 0;
-    private static final int MODE_GARAGE = 1;
-    private static final int MODE_MENU = 2;
-    private static final int MODE_JAIL = 3;
+public final class GameView extends FrameLayout {
+  private final World world;
+  private final HUD hud;
+  public GameView(Context c){
+    super(c);
+    world=new World(c);
+    hud=new HUD(c,world.r);
+    addView(world,new FrameLayout.LayoutParams(-1,-1));
+    addView(hud,new FrameLayout.LayoutParams(-1,-1));
+  }
 
-    private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Random random = new Random(42);
-    private final List<WorldVehicle> vehicles = new ArrayList<>();
-    private final List<Police> police = new ArrayList<>();
-    private final List<Shot> shots = new ArrayList<>();
-    private final List<Citizen> citizens = new ArrayList<>();
-
-    private float playerX = 0f;
-    private float playerY = -50f;
-    private float inputX = 0f;
-    private float inputY = 0f;
-    private float cameraZoom = 1.0f;
-    private float wantedPulse = 0f;
-
-    private boolean inVehicle = true;
-    private int ownedVehicle = 0;
-    private int cash = 50000;
-    private int wanted = 0;
-    private long wantedUntil = 0L;
-    private int mode = MODE_GAME;
-    private long lastFrame = System.currentTimeMillis();
-    private long lastShot = 0L;
-
-    private static final VehicleSpec[] VEHICLES = {
-            new VehicleSpec("Urban GT", "מכונית ספורט", 0, Color.rgb(220, 60, 55), 0),
-            new VehicleSpec("Roadster X", "מכונית מרוץ", 22000, Color.rgb(45, 125, 230), 0),
-            new VehicleSpec("Rally 4x4", "ג'יפ שטח", 32000, Color.rgb(210, 165, 55), 1),
-            new VehicleSpec("Heavy Truck", "משאית", 42000, Color.rgb(175, 105, 60), 2),
-            new VehicleSpec("Trail Moto", "אופנוע שטח", 12000, Color.rgb(70, 200, 120), 1),
-            new VehicleSpec("Armored SUV", "רכב ממוגן", 68000, Color.rgb(75, 85, 78), 3),
-            new VehicleSpec("Rescue Van", "רכב חילוץ", 46000, Color.rgb(225, 225, 225), 3),
-            new VehicleSpec("Speed Boat", "סירת מרוץ", 28000, Color.rgb(70, 170, 220), 4),
-            new VehicleSpec("Sea Runner", "אופנוע ים", 21000, Color.rgb(40, 210, 210), 4),
-            new VehicleSpec("Heli Scout", "מסוק", 125000, Color.rgb(115, 145, 95), 5),
-            new VehicleSpec("Airliner", "מטוס נוסעים", 350000, Color.rgb(235, 235, 235), 5),
-            new VehicleSpec("Offroad Quad", "טרקטורון", 15000, Color.rgb(235, 120, 45), 1)
-    };
-
-    public GameView(Context context) {
-        super(context);
-        setFocusable(true);
-        buildWorld();
+  private static final class World extends GLSurfaceView {
+    final R r;
+    World(Context c){
+      super(c); setEGLContextClientVersion(2); r=new R();
+      setRenderer(r); setRenderMode(RENDERMODE_CONTINUOUSLY);
     }
+  }
 
-    private void buildWorld() {
-        vehicles.clear();
-        police.clear();
+  private static final class R implements GLSurfaceView.Renderer {
+    private final String VS="attribute vec3 p;attribute vec3 n;uniform mat4 m;varying vec3 q;void main(){q=n;gl_Position=m*vec4(p,1.0);}";
+    private final String FS="precision mediump float;uniform vec4 c;uniform vec3 l;varying vec3 q;void main(){float d=max(dot(normalize(q),normalize(l)),0.0);gl_FragColor=vec4(c.rgb*(0.28+d*.72),c.a);}";
+    private FloatBuffer cube;
+    private int pr,ap,an,um,uc,ul;
+    private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
+    private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>();
+    private final Random rnd=new Random(77);
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60;
+    boolean gas,brake,left,right,onFoot,flash; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0;
+    private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
-        // City traffic.
-        addVehicle("Sedan A", 0, 330, Color.rgb(200, 70, 70), 0, false);
-        addVehicle("Sedan B", -620, 330, Color.rgb(70, 150, 230), 0, false);
-        addVehicle("Coupe", 640, 330, Color.rgb(235, 180, 60), 0, false);
-        addVehicle("Rally", -360, -510, Color.rgb(220, 160, 50), 2, false);
-        addVehicle("Truck", 780, -510, Color.rgb(175, 105, 60), 3, false);
-        addVehicle("Bike", -120, 720, Color.rgb(60, 210, 120), 4, false);
-        addVehicle("Quad", 470, 850, Color.rgb(235, 120, 45), 11, false);
-        addVehicle("Armored", 1040, -500, Color.rgb(70, 80, 72), 5, false);
-        addVehicle("Rescue", -1050, -470, Color.WHITE, 6, false);
-
-        // Harbor traffic.
-        for (int i = 0; i < 6; i++) {
-            addVehicle("Boat " + i, -1100 + i * 300, 700, i % 2 == 0 ? Color.rgb(235,235,235) : Color.rgb(80,170,220), 7, false);
-        }
-        addVehicle("Jet", 850, 760, Color.rgb(45, 210, 215), 8, false);
-
-        // Airport.
-        addVehicle("Heli", -900, -900, Color.rgb(110, 145, 90), 9, false);
-        addVehicle("Plane", -500, -900, Color.rgb(238, 238, 238), 10, false);
-
-        for (int i = 0; i < 12; i++) {
-            float x = -1200 + random.nextInt(2400);
-            float y = -1050 + random.nextInt(2100);
-            if (Math.abs(x) < 260 && Math.abs(y) < 260) {
-                x += 500;
-            }
-            int type = random.nextInt(6);
-            addVehicle("Traffic " + i, x, y, VEHICLES[type].color, type, true);
-        }
-
-        // A few patrol cars start far away; they become active when wanted rises.
-        for (int i = 0; i < 5; i++) {
-            Police unit = new Police(-1500 + i * 620, -1200 + i * 180);
-            police.add(unit);
-        }
-        for (int i = 0; i < 16; i++) {
-            float x = -1700 + random.nextInt(3300);
-            float y = -1000 + random.nextInt(1950);
-            citizens.add(new Citizen(x, y));
-        }
+    R(){
+      for(int i=0;i<42;i++)objs.add(new Obj(-95+rnd.nextFloat()*190,-40+rnd.nextFloat()*83,5+rnd.nextFloat()*4,8+rnd.nextFloat()*18));
+      for(int i=0;i<18;i++)traffic.add(new Obj(-82+rnd.nextFloat()*164,-28+rnd.nextFloat()*58,3.8f,6));
     }
-
-    private void addVehicle(String name, float x, float y, int color, int type, boolean traffic) {
-        vehicles.add(new WorldVehicle(name, x, y, color, type, traffic));
+    public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig c){
+      GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);
+      pr=link(shader(GLES20.GL_VERTEX_SHADER,VS),shader(GLES20.GL_FRAGMENT_SHADER,FS));
+      ap=GLES20.glGetAttribLocation(pr,"p");an=GLES20.glGetAttribLocation(pr,"n");
+      um=GLES20.glGetUniformLocation(pr,"m");uc=GLES20.glGetUniformLocation(pr,"c");ul=GLES20.glGetUniformLocation(pr,"l");
+      cube=makeCube();last=System.nanoTime();fs=SystemClock.uptimeMillis();
     }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-
-        long now = System.currentTimeMillis();
-        float dt = Math.min(0.035f, Math.max(0.001f, (now - lastFrame) / 1000f));
-        lastFrame = now;
-
-        if (mode == MODE_GAME) {
-            updateWorld(dt);
-        }
-
-        drawWorld(canvas);
-        drawPlayer(canvas);
-        drawHud(canvas);
-
-        if (mode == MODE_GARAGE) drawGarage(canvas);
-        else if (mode == MODE_MENU) drawMenu(canvas);
-        else if (mode == MODE_JAIL) drawJail(canvas);
-
-        postInvalidateDelayed(16);
+    public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 g,int w,int h){
+      GLES20.glViewport(0,0,w,h);Matrix.perspectiveM(P,0,60,Math.max(.1f,w/(float)Math.max(1,h)),.1f,260);
     }
-
-    private void updateWorld(float dt) {
-        float speed = inVehicle ? 420f : 235f;
-        playerX += inputX * speed * dt;
-        playerY += inputY * speed * dt;
-        inputX *= 0.82f;
-        inputY *= 0.82f;
-
-        wantedPulse += dt;
-        if (wanted > 0) {
-            if (System.currentTimeMillis() > wantedUntil) {
-                wanted = Math.max(0, wanted - 1);
-                wantedUntil = System.currentTimeMillis() + 4000L;
-            }
-        }
-
-        // Light traffic movement keeps the city alive.
-        for (WorldVehicle v : vehicles) {
-            if (!v.traffic) continue;
-            v.x += v.dirX * 28f * dt;
-            v.y += v.dirY * 28f * dt;
-            if (v.x < -1900) v.x = 1900;
-            if (v.x > 1900) v.x = -1900;
-            if (v.y < -1200) v.y = 1200;
-            if (v.y > 1200) v.y = -1200;
-        }
-
-        // Wanted level activates nearby patrols.
-        updateShots(dt);
-
-        for (Citizen person : citizens) {
-            person.x += person.dx * 22f * dt;
-            person.y += person.dy * 22f * dt;
-            if (person.x < -1900 || person.x > 1900) person.dx *= -1f;
-            if (person.y < -1100 || person.y > 1100) person.dy *= -1f;
-        }
-
-        for (Police unit : police) {
-            if (wanted >= 2) {
-                float dx = playerX - unit.x;
-                float dy = playerY - unit.y;
-                float dist = Math.max(1f, (float)Math.sqrt(dx * dx + dy * dy));
-                float chase = (wanted >= 4 ? 185f : 135f) * dt;
-                unit.x += dx / dist * chase;
-                unit.y += dy / dist * chase;
-                if (dist < 70 && wanted >= 3) {
-                    mode = MODE_JAIL;
-                    inputX = inputY = 0f;
-                }
-            } else {
-                unit.x += unit.dirX * 18f * dt;
-                unit.y += unit.dirY * 18f * dt;
-            }
-        }
-
-        playerX = clamp(playerX, -1950f, 1950f);
-        playerY = clamp(playerY, -1150f, 1150f);
+    public void onDrawFrame(javax.microedition.khronos.opengles.GL10 g){
+      long n=System.nanoTime();float dt=Math.min(.04f,Math.max(.001f,(n-last)/1e9f));last=n;update(dt);
+      fc++;long ms=SystemClock.uptimeMillis();if(ms-fs>1000){fps=fc*1000f/(ms-fs);fc=0;fs=ms;}
+      float dl=.2f+(float)Math.max(0,Math.sin((time-7)/12*Math.PI))*.8f;
+      GLES20.glClearColor(.03f+.08f*dl,.05f+.10f*dl,.07f+.13f*dl,1);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
+      GLES20.glUseProgram(pr);GLES20.glUniform3f(ul,-.3f,1,-.45f);
+      box(0,-1,10,115,1,140,new float[]{.14f,.21f,.16f,1});
+      box(0,-.42f,10,105,.2f,58,new float[]{.09f,.10f,.12f,1});
+      box(0,-.30f,7,105,.14f,8,new float[]{.04f,.05f,.06f,1});
+      box(-34,-.30f,15,8,.14f,54,new float[]{.04f,.05f,.06f,1});
+      box(37,-.30f,18,9,.14f,56,new float[]{.04f,.05f,.06f,1});
+      for(int i=-8;i<9;i++)box(i*11,-.21f,7,2,.03f,.14f,new float[]{.75f,.65f,.18f,1});
+      box(0,-.2f,68,105,.2f,10,new float[]{.38f,.29f,.20f,1});
+      box(0,-.78f,96,115,.12f,43,new float[]{.03f,.25f,.36f,1});
+      for(int i=0;i<13;i++)box((float)Math.sin(time+i)*1.2f,-.69f,77+i*2.8f,86,.025f,.06f,new float[]{.20f,.58f,.68f,1});
+      box(-74,-.28f,-84,32,.12f,9,new float[]{.07f,.08f,.09f,1});box(-102,.6f,-92,4,2,28,new float[]{.32f,.34f,.37f,1});
+      int bmax=quality==0?18:(quality==1?32:objs.size());
+      for(int i=0;i<bmax;i++){Obj o=objs.get(i);box(o.x,o.h/2,o.z,o.w,o.h,o.w*.82f,new float[]{.25f+.1f*dl,.27f+.1f*dl,.31f+.1f*dl,1});box(o.x,o.h*.52f,o.z-o.w*.43f,o.w*.48f,o.h*.30f,.04f,new float[]{.06f,.12f,.16f,1});}
+      for(int i=0;i<(quality==0?22:40);i++){Obj o=objs.get((i*3)%objs.size());box(o.x+6,o.h*.20f,o.z+7,.45f,3.2f,.45f,new float[]{.24f,.14f,.08f,1});box(o.x+6,4,o.z+7,3.8f,3.8f,3.8f,new float[]{.07f,.30f,.13f,1});}
+      for(Obj o:traffic)car(o.x,o.z,0);
+      for(int i=0;i<5;i++){Obj q=new Obj(-50+i*20,-28-i*5,3.9f,6);if(wanted>=2){float dx=x-q.x,dz=z-q.z,l=(float)Math.hypot(dx,dz)+.01f;q.x+=dx/l*(6+wanted*1.7f)*dt;q.z+=dz/l*(6+wanted*1.7f)*dt;}police(q.x,q.z);}
+      if(onFoot)player();else car(x,z,vehicle);
     }
-
-    private void drawWorld(Canvas c) {
-        float w = getWidth();
-        float h = getHeight();
-
-        c.drawColor(Color.rgb(23, 31, 29));
-        c.save();
-        c.translate(w / 2f - playerX * cameraZoom, h / 2f - playerY * cameraZoom);
-        c.scale(cameraZoom, cameraZoom);
-
-        // Grass / city land.
-        fill(c, Color.rgb(68, 92, 66));
-        c.drawRect(-2100, -1250, 2100, 1250, p);
-
-        // Coast and sea.
-        fill(c, Color.rgb(33, 104, 138));
-        c.drawRect(-2100, 520, 2100, 1250, p);
-        drawWaterLines(c);
-
-        // City district.
-        fill(c, Color.rgb(92, 91, 83));
-        c.drawRect(-1850, -850, 600, 500, p);
-
-        // Roads with center markings.
-        drawRoad(c, -2000, -140, 4000, 260, true);
-        drawRoad(c, -130, -1200, 260, 1700, false);
-        drawRoad(c, -1600, -620, 2200, 160, true);
-        drawRoad(c, 500, 250, 1650, 170, true);
-
-        // City buildings.
-        for (int x = -1750; x <= 350; x += 330) {
-            for (int y = -760; y <= 200; y += 270) {
-                if (Math.abs(x) < 300 || Math.abs(y) < 160) continue;
-                drawBuilding(c, x, y, 230, 175);
-            }
-        }
-
-        // Off-road area.
-        fill(c, Color.rgb(97, 116, 67));
-        c.drawRect(620, -150, 2000, 510, p);
-        for (int i = 0; i < 18; i++) {
-            float x = 700 + (i * 97) % 1200;
-            float y = -70 + (i * 73) % 470;
-            fill(c, Color.rgb(72, 88, 57));
-            c.drawCircle(x, y, 24 + (i % 3) * 9, p);
-        }
-
-        // Harbor dock.
-        fill(c, Color.rgb(105, 88, 65));
-        c.drawRect(-1500, 420, 400, 620, p);
-        fill(c, Color.rgb(148, 124, 88));
-        for (int i = 0; i < 8; i++) {
-            c.drawRect(-1380 + i * 215, 435, -1335 + i * 215, 610, p);
-        }
-        label(c, "נמל", -1260, 505, 28, Color.WHITE);
-
-        // Airport runways and terminal.
-        fill(c, Color.rgb(55, 60, 64));
-        c.drawRect(-1350, -1090, 250, -770, p);
-        c.drawRect(-1120, -1200, -930, -650, p);
-        fill(c, Color.WHITE);
-        for (int i = 0; i < 11; i++) {
-            c.drawRect(-1290 + i * 125, -943, -1230 + i * 125, -927, p);
-        }
-        fill(c, Color.rgb(225, 225, 225));
-        c.drawRoundRect(new RectF(-1150, -850, -700, -770), 16, 16, p);
-        label(c, "שדה תעופה", -1080, -810, 24, Color.DKGRAY);
-
-        // Scenic hill.
-        fill(c, Color.rgb(76, 96, 61));
-        Path hill = new Path();
-        hill.moveTo(1100, -1050);
-        hill.lineTo(1600, -1050);
-        hill.lineTo(1850, -700);
-        hill.lineTo(1100, -700);
-        hill.close();
-        c.drawPath(hill, p);
-
-        // World vehicles.
-        for (WorldVehicle v : vehicles) {
-            drawWorldVehicle(c, v);
-        }
-
-        // Police.
-        for (Police unit : police) {
-            drawPolice(c, unit.x, unit.y);
-        }
-        for (Citizen person : citizens) {
-            drawCitizen(c, person.x, person.y);
-        }
-        for (Shot shot : shots) {
-            drawShot(c, shot.x, shot.y);
-        }
-
-        c.restore();
+    void update(float dt){
+      float tar=gas?(15+vehicle*1.2f):0;if(brake)tar=-7;
+      spd+=(tar-spd)*Math.min(1,dt*4);if(!gas&&!brake)spd*=Math.pow(.78,dt*10);
+      yaw+=((right?1:0)-(left?1:0))*(.55+Math.abs(spd)*.018)*dt;
+      float k=onFoot?.35f:1; x+=Math.sin(yaw)*spd*dt*k;z+=Math.cos(yaw)*spd*dt*k;x=cl(x,-106,106);z=cl(z,-110,110);
+      if(wanted>0){wantedT-=dt;if(wantedT<=0&&Math.abs(spd)<2){wanted--;wantedT=3.2f;}}
+      if(flash){flash=false;wanted=Math.min(5,wanted+1);wantedT=7;cash+=40;}
+      time+=dt*.18;if(time>=24)time-=24;
+      for(Obj o:traffic){o.z+=(o.x<0?1:-1)*o.h*dt;if(o.z>65)o.z=-60;if(o.z<-65)o.z=65;}
     }
-
-    private void drawWaterLines(Canvas c) {
-        p.setStrokeWidth(4);
-        p.setColor(Color.rgb(55, 135, 165));
-        for (int i = -2000; i < 2000; i += 130) {
-            c.drawLine(i, 600, i + 70, 600, p);
-            c.drawLine(i + 40, 760, i + 115, 760, p);
-            c.drawLine(i - 20, 920, i + 50, 920, p);
-        }
+    void car(float X,float Z,int t){float[] c=color(t);box(X,.58f,Z,4.2f,.95f,6.7f,c);box(X,1.25f,Z-.2f,3,.8f,3.35f,new float[]{.04f,.07f,.09f,1});for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})box(X+sx*1.7f,.38f,Z+sz*2.35f,.45f,.58f,1.05f,new float[]{.02f,.02f,.02f,1});}
+    void police(float X,float Z){car(X,Z,5);box(X,1.75f,Z,1,.15f,.62f,new float[]{.08f,.20f,.78f,1});}
+    void player(){box(x,1.1f,z,1,1.9f,.65f,new float[]{.10f,.28f,.50f,1});box(x,2.25f,z,.55f,.58f,.55f,new float[]{.62f,.42f,.30f,1});box(x-.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});box(x+.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});}
+    void box(float X,float Y,float Z,float sx,float sy,float sz,float[] col){
+      Matrix.setIdentityM(M,0);Matrix.translateM(M,0,X,Y,Z);Matrix.scaleM(M,0,sx/2,sy/2,sz/2);
+      float ex,ey,ez,cx,cy,cz;
+      if(camera==2){ex=x;ey=2.1f;ez=z-.8f;cx=x+(float)Math.sin(yaw)*15;cy=1.8f;cz=z+(float)Math.cos(yaw)*15;}
+      else {float d=camera==1?7.5f:11.5f;ex=x-(float)Math.sin(yaw)*d;ey=camera==1?4:6.2f;ez=z-(float)Math.cos(yaw)*d;cx=x;cy=1;cz=z;}
+      Matrix.setLookAtM(V,0,ex,ey,ez,cx,cy,cz,0,1,0);Matrix.multiplyMM(VP,0,P,0,V,0);Matrix.multiplyMM(MVP,0,VP,0,M,0);
+      GLES20.glUniformMatrix4fv(um,1,false,MVP,0);GLES20.glUniform4fv(uc,1,col,0);
+      cube.position(0);GLES20.glEnableVertexAttribArray(ap);GLES20.glVertexAttribPointer(ap,3,GLES20.GL_FLOAT,false,24,cube);
+      cube.position(3);GLES20.glEnableVertexAttribArray(an);GLES20.glVertexAttribPointer(an,3,GLES20.GL_FLOAT,false,24,cube);
+      GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,36);GLES20.glDisableVertexAttribArray(ap);GLES20.glDisableVertexAttribArray(an);
     }
+    FloatBuffer makeCube(){float[]v={-1,-1,-1,0,0,-1,1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,1,-1,0,0,-1,-1,-1,1,0,0,1,1,1,1,0,0,1,1,-1,1,0,0,1,-1,-1,1,0,0,1,-1,1,1,0,0,1,1,1,1,0,0,1,-1,-1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,1,-1,-1,0,0,-1,-1,-1,-1,-1,0,0,-1,1,-1,-1,-1,0,0,-1,1,1,-1,-1,0,0,1,-1,-1,1,1,0,0,1,1,1,1,1,0,0,1,-1,-1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,-1,1,0,0,-1,1,-1,0,1,0,1,1,-1,0,1,0,1,1,1,0,1,0,-1,1,-1,0,1,0,1,1,1,0,1,0,-1,1,1,0,1,0,-1,-1,-1,0,-1,0,-1,-1,1,0,-1,0,1,-1,1,0,-1,0,-1,-1,-1,0,-1,0,1,-1,1,0,-1,0,1,-1,-1,0,-1,0};ByteBuffer b=ByteBuffer.allocateDirect(v.length*4).order(ByteOrder.nativeOrder());FloatBuffer f=b.asFloatBuffer();f.put(v).position(0);return f;}
+    int shader(int type,String s){int q=GLES20.glCreateShader(type);GLES20.glShaderSource(q,s);GLES20.glCompileShader(q);return q;}
+    int link(int a,int b){int q=GLES20.glCreateProgram();GLES20.glAttachShader(q,a);GLES20.glAttachShader(q,b);GLES20.glLinkProgram(q);return q;}
+    float[] color(int i){switch(i%8){case 1:return new float[]{.16f,.44f,.92f,1};case 2:return new float[]{.12f,.44f,.20f,1};case 3:return new float[]{.70f,.35f,.16f,1};case 4:return new float[]{.72f,.74f,.78f,1};case 5:return new float[]{.16f,.22f,.19f,1};case 6:return new float[]{.72f,.14f,.13f,1};case 7:return new float[]{.12f,.56f,.66f,1};default:return new float[]{.72f,.18f,.15f,1};}}
+    float cl(float v,float a,float b){return Math.max(a,Math.min(b,v));}
+    String vname(){return new String[]{"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"}[vehicle];}
+    int[] prices(){return new int[]{0,22000,32000,46000,14000,68000,28000,125000};}
+    String mission(){if(wanted>0)return"מרדף פעיל • הימלט מהאזור";if(time<13.5)return"משימת פתיחה • היכרות עם העיר";if(time<15.5)return"מרוץ שכונתי • השג את נקודת הסיום";if(time<18)return"סיור בנמל • הגעה לרציף";return"עולם פתוח • בחר יעד משלך";}
+    void setGas(boolean b){gas=b;}void setBrake(boolean b){brake=b;}void setLeft(boolean b){left=b;}void setRight(boolean b){right=b;}
+    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){flash=true;}
+    void quality(int q){quality=Math.max(0,Math.min(2,q));}boolean buy(int i){int[]p=prices();if(i==vehicle)return true;if(cash<p[i])return false;cash-=p[i];vehicle=i;spd=0;return true;}
+    static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
+  }
 
-    private void drawRoad(Canvas c, float x, float y, float width, float height, boolean horizontal) {
-        fill(c, Color.rgb(47, 51, 53));
-        c.drawRect(x, y, x + width, y + height, p);
-        p.setStrokeWidth(7);
-        p.setColor(Color.rgb(216, 190, 75));
-        if (horizontal) {
-            for (float xx = x + 20; xx < x + width; xx += 85) {
-                c.drawLine(xx, y + height / 2f, xx + 42, y + height / 2f, p);
-            }
-        } else {
-            for (float yy = y + 20; yy < y + height; yy += 85) {
-                c.drawLine(x + width / 2f, yy, x + width / 2f, yy + 42, p);
-            }
-        }
+  private static final class HUD extends View {
+    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final R r;int mode=0;boolean intro=true;
+    HUD(Context c,R r){super(c);this.r=r;setFocusable(true);}
+    protected void onDraw(Canvas c){
+      int w=getWidth(),h=getHeight();
+      if(mode==0){home(c,w,h);return;}
+      hud(c,w,h);if(mode==2)garage(c,w,h);if(mode==3)map(c,w,h);if(mode==4)settings(c,w,h);if(intro)intro(c,w,h);postInvalidateDelayed(150);
     }
-
-    private void drawBuilding(Canvas c, float x, float y, float bw, float bh) {
-        fill(c, Color.rgb(149, 145, 136));
-        c.drawRoundRect(new RectF(x, y, x + bw, y + bh), 15, 15, p);
-        fill(c, Color.rgb(67, 77, 86));
-        for (int i = 0; i < 4; i++) {
-            c.drawRect(x + 25 + i * 50, y + 28, x + 57 + i * 50, y + 62, p);
-            c.drawRect(x + 25 + i * 50, y + 90, x + 57 + i * 50, y + 124, p);
-        }
-        fill(c, Color.rgb(112, 105, 97));
-        c.drawRect(x + 70, y + bh - 48, x + 160, y + bh, p);
+    void home(Canvas c,int w,int h){
+      p.setShader(new LinearGradient(0,0,w,h,Color.rgb(8,13,18),Color.rgb(38,54,67),Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
+      t(c,"ROAD",48,88,24,Color.LTGRAY);t(c,"LEGENDS",48,142,54,Color.WHITE);t(c,"עולם פתוח תלת־ממדי",50,174,19,Color.rgb(186,205,219));
+      round(c,w*.56f,h*.31f,w*.92f,h*.70f,0x5530424F,28);t(c,"CITY  //  HARBOR  //  WILDS",w*.59f,h*.42f,14,Color.rgb(224,188,76));t(c,"עולם חי. נהיגה. משימות.",w*.59f,h*.50f,24,Color.WHITE);t(c,"תאורת יום/לילה • מפה • מוסך • אירועים",w*.59f,h*.55f,14,Color.LTGRAY);
+      chip(c,48,h-135,"₪ "+money(r.cash),"יתרה");chip(c,190,h-135,"FPS "+Math.round(r.fps),"ביצועים");chip(c,332,h-135,"Android 9+","תאימות");
+      primary(c,w-292,h-178,235,58,"התחל משחק");secondary(c,w-292,h-108,108,48,"מוסך");secondary(c,w-167,h-108,108,48,"הגדרות");t(c,"עברית RTL • שליטה ברורה • שמירה והתקדמות",50,h-28,14,Color.LTGRAY);
     }
-
-    private void drawWorldVehicle(Canvas c, WorldVehicle v) {
-        switch (v.type) {
-            case 3: drawTruck(c, v.x, v.y, v.color); break;
-            case 4:
-            case 11: drawBike(c, v.x, v.y, v.color); break;
-            case 7:
-            case 8: drawBoat(c, v.x, v.y, v.color); break;
-            case 9: drawHelicopter(c, v.x, v.y, v.color); break;
-            case 10: drawPlane(c, v.x, v.y, v.color); break;
-            case 5: drawArmored(c, v.x, v.y, v.color); break;
-            default: drawCar(c, v.x, v.y, v.color); break;
-        }
+    void hud(Canvas c,int w,int h){
+      round(c,18,16,w-18,94,0xC0091015,22);t(c,"ROAD LEGENDS",38,47,19,Color.WHITE);t(c,r.vname(),38,73,15,Color.LTGRAY);t(c,"₪ "+money(r.cash),w-190,48,22,Color.WHITE);t(c,Math.round(Math.abs(r.spd)*7.2f)+" קמ״ש",w-190,74,14,Color.LTGRAY);
+      String want=r.wanted==0?"הכול רגוע":"חיפוש "+"★ ".repeat(Math.min(5,r.wanted));t(c,want,w/2f-42,49,15,r.wanted==0?Color.rgb(150,184,160):Color.rgb(255,214,74));
+      round(c,18,110,425,181,0xB20E151C,18);t(c,"המשימה הפעילה",38,136,13,Color.rgb(117,164,201));t(c,r.mission(),38,163,15,Color.WHITE);
+      ctl(c,28,h-118,72,62,"◀");ctl(c,112,h-162,72,62,"▲");ctl(c,112,h-74,72,62,"▼");ctl(c,196,h-118,72,62,"▶");
+      ctl(c,w-365,h-118,90,62,r.onFoot?"רכב":"יציאה");ctl(c,w-263,h-118,90,62,"מוסך");ctl(c,w-161,h-118,90,62,"מפה");
+      sml(c,w-365,h-50,90,42,"שחקן");sml(c,w-263,h-50,90,42,"מצלמה");sml(c,w-161,h-50,90,42,"פעולה");t(c,"▲ תאוצה   ▼ בלימה   ◀ ▶ היגוי",w/2f-125,h-18,13,Color.LTGRAY);
     }
-
-    private void drawCar(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        c.drawRoundRect(new RectF(x - 52, y - 30, x + 52, y + 30), 15, 15, p);
-        fill(c, Color.rgb(35, 43, 50));
-        c.drawRoundRect(new RectF(x - 25, y - 22, x + 28, y + 18), 10, 10, p);
-        fill(c, Color.rgb(18, 18, 18));
-        c.drawCircle(x - 38, y + 26, 10, p);
-        c.drawCircle(x + 38, y + 26, 10, p);
-        fill(c, Color.WHITE);
-        c.drawCircle(x - 38, y - 26, 5, p);
-        c.drawCircle(x + 38, y - 26, 5, p);
+    void intro(Canvas c,int w,int h){fill(c,0x77000000);c.drawRect(0,0,w,h,p);round(c,w/2f-265,h/2f-96,w/2f+265,h/2f+96,0xF01A222A,28);t(c,"ברוכים הבאים ל־ROAD LEGENDS",w/2f-212,h/2f-38,23,Color.WHITE);t(c,"תלת־ממד • עיר • נמל • שטח • שדה תעופה",w/2f-190,h/2f-5,15,Color.LTGRAY);t(c,"התחל במשימת הפתיחה והתקדם לרכבים ולמוסך",w/2f-185,h/2f+25,15,Color.LTGRAY);primary(c,w/2f-105,h/2f+46,210,50,"הבנתי");}
+    void garage(Canvas c,int w,int h){fill(c,0xA8000000);c.drawRect(0,0,w,h,p);round(c,26,24,w-26,h-24,0xF019222A,28);t(c,"המוסך שלי",52,68,30,Color.WHITE);t(c,"קנה והחלף כלי תחבורה",52,95,14,Color.LTGRAY);String[] n={"Urban GT","Roadster X","Rally 4x4","Heavy Truck","Aero Moto","Armored SUV","Sea Runner","Sky Heli"};String[] s={"ספורט","מרוץ","שטח","משאית","אופנוע","ממוגן","כלי שיט","מסוק"};float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float x=50+col*cw,y=118+row*92;round(c,x,y,x+cw-14,y+76,i==r.vehicle?0xFF314B60:0xFF202830,16);t(c,n[i],x+12,y+27,14,Color.WHITE);t(c,s[i],x+12,y+49,12,Color.LTGRAY);int q=r.prices()[i];t(c,q==0?"שלך":"₪ "+money(q),x+12,y+68,12,Color.rgb(244,214,106));}primary(c,w-170,h-78,120,48,"חזרה");}
+    void map(Canvas c,int w,int h){fill(c,0xEE11181E);c.drawRoundRect(new RectF(28,25,w-28,h-25),28,28,p);t(c,"מפת העולם",54,70,30,Color.WHITE);round(c,56,94,w-56,h-95,Color.rgb(56,79,60),20);fill(c,Color.rgb(42,53,58));c.drawRect(56,h/2-24,w-56,h/2+24,p);fill(c,Color.rgb(36,105,138));c.drawRect(56,h-215,w-56,h-95,p);fill(c,Color.rgb(83,90,93));c.drawRect(w-280,110,w-86,h-252,p);mark(c,94,h/2,Color.WHITE,"אתה");mark(c,w-182,156,Color.rgb(245,185,70),"שדה");mark(c,w/2,h-155,Color.rgb(88,202,231),"נמל");primary(c,w-170,h-78,120,48,"חזרה");}
+    void settings(Canvas c,int w,int h){fill(c,0xEE151C22);c.drawRoundRect(new RectF(58,35,w-58,h-35),28,28,p);t(c,"הגדרות",88,84,30,Color.WHITE);t(c,"איכות גרפיקה",88,130,16,Color.LTGRAY);secondary(c,88,148,108,46,"ביצועים");secondary(c,208,148,108,46,"גבוהה");secondary(c,328,148,108,46,"אולטרה");t(c,"מצלמה: "+(r.camera==0?"רחוקה":r.camera==1?"קרובה":"תא נהג"),88,238,17,Color.WHITE);t(c,"Android 9 ומעלה • טעינת עולם חכמה • FPS יציב",88,276,14,Color.LTGRAY);primary(c,w-190,h-90,130,50,"חזרה");}
+    void chip(Canvas c,float x,float y,String a,String b){round(c,x,y,x+128,y+62,0x5526323A,18);t(c,a,x+13,y+27,17,Color.WHITE);t(c,b,x+13,y+49,12,Color.LTGRAY);}
+    void ctl(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,18);center(c,s,x+w/2,y+h/2+8,23,Color.WHITE);}
+    void sml(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,15);t(c,s,x+12,y+h/2+6,13,Color.WHITE);}
+    void primary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xFFE3B84B,17);center(c,s,x+w/2,y+h/2+6,16,Color.rgb(18,20,22));}
+    void secondary(Canvas c,float x,float y,float w,float h,String s){round(c,x,y,x+w,y+h,0xD01A242D,17);center(c,s,x+w/2,y+h/2+6,14,Color.WHITE);}
+    void mark(Canvas c,float x,float y,int col,String s){fill(c,col);c.drawCircle(x,y,9,p);t(c,s,x+14,y+5,13,Color.WHITE);}
+    void round(Canvas c,float a,float b,float d,float e,int col,float rad){fill(c,col);c.drawRoundRect(new RectF(a,b,d,e),rad,rad,p);}
+    void fill(Canvas c,int col){p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(col);}
+    void t(Canvas c,String s,float x,float y,float sz,int col){p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(sz);p.setColor(col);p.setStyle(Paint.Style.FILL);p.setShader(null);c.drawText(s,x,y,p);}
+    void center(Canvas c,String s,float x,float y,float sz,int col){p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(sz);p.setColor(col);c.drawText(s,x-p.measureText(s)/2,y,p);}
+    String money(int n){return String.format(Locale.US,"%,d",n);}
+    public boolean onTouchEvent(MotionEvent e){
+      float x=e.getX(),y=e.getY();int w=getWidth(),h=getHeight();boolean up=e.getAction()==MotionEvent.ACTION_UP;
+      if(e.getAction()!=MotionEvent.ACTION_DOWN&& !up)return true;
+      if(mode==0&&up){if(x>w-305&&y>h-205&&y<h-110){mode=1;intro=true;}else if(x>w-305&&y>h-115){mode=2;}else if(x>w-175&&y>h-115){mode=4;}invalidate();return true;}
+      if(mode==1){if(intro){if(up&&y>h/2){intro=false;invalidate();}return true;}if(up){stop();if(y>h-90&&x>w-280&&x<w-160)r.toggleCamera();else if(y>h-90&&x>w-170&&x<w-65)r.trigger();else if(y>h-90&&x>w-375&&x<w-275)r.enterExit();else if(y>h-150&&x>w-370&&x<w-270)r.enterExit();else if(y>h-150&&x>w-265&&x<w-175)mode=2;else if(y>h-150&&x>w-170&&x<w-70)mode=3;invalidate();return true;}held(x,y,h);}
+      if(mode==2&&up){if(y>h-100){mode=1;invalidate();return true;}float cw=(w-112)/4f;for(int i=0;i<8;i++){int col=i%4,row=i/4;float bx=50+col*cw,by=118+row*92;if(x>=bx&&x<=bx+cw-14&&y>=by&&y<=by+76){r.buy(i);invalidate();return true;}}}
+      if((mode==3||mode==4)&&up&&y>h-110){mode=1;invalidate();return true;}
+      if(mode==4&&up&&y>=145&&y<=205){r.quality(Math.max(0,Math.min(2,(int)((x-88)/120))));invalidate();return true;}return true;
     }
-
-    private void drawTruck(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        c.drawRect(x - 72, y - 34, x + 70, y + 34, p);
-        fill(c, Color.rgb(50, 58, 65));
-        c.drawRect(x - 96, y - 28, x - 70, y + 31, p);
-        fill(c, Color.rgb(18, 18, 18));
-        c.drawCircle(x - 55, y + 40, 11, p);
-        c.drawCircle(x + 48, y + 40, 11, p);
-        c.drawCircle(x + 76, y + 40, 11, p);
-    }
-
-    private void drawBike(Canvas c, float x, float y, int color) {
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(8);
-        p.setColor(color);
-        c.drawCircle(x - 28, y + 18, 16, p);
-        c.drawCircle(x + 28, y + 18, 16, p);
-        c.drawLine(x - 28, y + 18, x, y - 12, p);
-        c.drawLine(x, y - 12, x + 28, y + 18, p);
-        p.setStyle(Paint.Style.FILL);
-        fill(c, color);
-        c.drawCircle(x, y - 20, 8, p);
-    }
-
-    private void drawArmored(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        c.drawRoundRect(new RectF(x - 68, y - 37, x + 68, y + 37), 10, 10, p);
-        fill(c, Color.rgb(36, 43, 39));
-        c.drawRoundRect(new RectF(x - 25, y - 24, x + 30, y + 18), 8, 8, p);
-        fill(c, Color.rgb(18, 18, 18));
-        c.drawCircle(x - 45, y + 33, 12, p);
-        c.drawCircle(x + 45, y + 33, 12, p);
-    }
-
-    private void drawBoat(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        Path hull = new Path();
-        hull.moveTo(x - 65, y);
-        hull.lineTo(x + 58, y);
-        hull.lineTo(x + 33, y + 36);
-        hull.lineTo(x - 42, y + 36);
-        hull.close();
-        c.drawPath(hull, p);
-        fill(c, Color.rgb(40, 55, 65));
-        c.drawRoundRect(new RectF(x - 20, y - 32, x + 30, y + 4), 6, 6, p);
-    }
-
-    private void drawHelicopter(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        c.drawRoundRect(new RectF(x - 48, y - 18, x + 50, y + 20), 18, 18, p);
-        fill(c, Color.rgb(35, 42, 45));
-        c.drawCircle(x + 14, y, 18, p);
-        p.setStrokeWidth(5);
-        p.setColor(Color.DKGRAY);
-        c.drawLine(x - 65, y - 27, x + 66, y - 27, p);
-        c.drawLine(x - 38, y + 30, x + 60, y + 30, p);
-    }
-
-    private void drawPlane(Canvas c, float x, float y, int color) {
-        fill(c, color);
-        Path plane = new Path();
-        plane.moveTo(x - 88, y);
-        plane.lineTo(x - 20, y - 12);
-        plane.lineTo(x + 78, y - 42);
-        plane.lineTo(x + 88, y - 28);
-        plane.lineTo(x + 20, y);
-        plane.lineTo(x + 88, y + 28);
-        plane.lineTo(x + 78, y + 42);
-        plane.lineTo(x - 20, y + 12);
-        plane.close();
-        c.drawPath(plane, p);
-        fill(c, Color.rgb(70, 90, 100));
-        c.drawRoundRect(new RectF(x - 10, y - 8, x + 62, y + 8), 7, 7, p);
-    }
-
-    private void drawPolice(Canvas c, float x, float y) {
-        drawCar(c, x, y, Color.rgb(240, 240, 240));
-        fill(c, Color.rgb(40, 75, 205));
-        c.drawRect(x - 16, y - 43, x + 2, y - 29, p);
-        fill(c, Color.rgb(215, 55, 55));
-        c.drawRect(x + 2, y - 43, x + 20, y - 29, p);
-    }
-
-    private void drawPlayer(Canvas c) {
-        float cx = getWidth() / 2f;
-        float cy = getHeight() / 2f;
-        if (inVehicle) {
-            VehicleSpec spec = VEHICLES[ownedVehicle];
-            drawWorldVehicleAtScreen(c, cx, cy, spec.type, spec.color);
-        } else {
-            fill(c, Color.rgb(30, 30, 30));
-            c.drawCircle(cx, cy - 22, 14, p);
-            fill(c, Color.rgb(80, 105, 145));
-            c.drawRoundRect(new RectF(cx - 15, cy - 10, cx + 15, cy + 34), 11, 11, p);
-            fill(c, Color.rgb(32, 32, 32));
-            c.drawRect(cx - 18, cy + 27, cx - 5, cy + 52, p);
-            c.drawRect(cx + 5, cy + 27, cx + 18, cy + 52, p);
-        }
-    }
-
-    private void drawWorldVehicleAtScreen(Canvas c, float x, float y, int type, int color) {
-        switch (type) {
-            case 3: drawTruck(c, x, y, color); break;
-            case 4:
-            case 11: drawBike(c, x, y, color); break;
-            case 7:
-            case 8: drawBoat(c, x, y, color); break;
-            case 9: drawHelicopter(c, x, y, color); break;
-            case 10: drawPlane(c, x, y, color); break;
-            case 5: drawArmored(c, x, y, color); break;
-            default: drawCar(c, x, y, color); break;
-        }
-    }
-
-    private void drawHud(Canvas c) {
-        float w = getWidth();
-        float h = getHeight();
-
-        fill(c, 0xD912171C);
-        c.drawRect(0, 0, w, 82, p);
-        label(c, "ROAD LEGENDS", 26, 35, 25, Color.WHITE);
-        label(c, VEHICLES[ownedVehicle].name, 26, 65, 16, Color.LTGRAY);
-        label(c, "₪" + cash, w - 145, 38, 21, Color.WHITE);
-
-        if (wanted > 0) {
-            String stars = "";
-            for (int i = 0; i < wanted; i++) stars += "★";
-            label(c, "חיפוש " + stars, w - 185, 66, 17, Color.rgb(255, 214, 80));
-        } else {
-            label(c, "הכול רגוע", w - 150, 66, 16, Color.LTGRAY);
-        }
-
-        // Left control cluster.
-        button(c, 28, h - 152, 76, 54, "◀");
-        button(c, 112, h - 190, 76, 54, "▲");
-        button(c, 112, h - 114, 76, 54, "▼");
-        button(c, 196, h - 152, 76, 54, "▶");
-
-        // Action cluster.
-        button(c, w - 332, h - 152, 96, 54, inVehicle ? "יציאה" : "כניסה");
-        button(c, w - 228, h - 152, 96, 54, "מוסך");
-        button(c, w - 124, h - 152, 96, 54, "תפריט");
-        button(c, w - 228, h - 90, 96, 50, "זום");
-        button(c, w - 124, h - 90, 96, 50, "אירוע");
-        button(c, w - 332, h - 90, 96, 50, "אקשן");
-
-        label(c, inVehicle ? "נהיגה" : "ברגל", w / 2f - 30, h - 28, 16, Color.WHITE);
-        label(c, "עולם פתוח  •  עיר  •  נמל  •  שטח  •  שדה תעופה", 28, 112, 16, Color.WHITE);
-    }
-
-    private void drawGarage(Canvas c) {
-        dim(c);
-        float w = getWidth();
-        float h = getHeight();
-
-        panel(c, 45, 55, w - 45, h - 55);
-        label(c, "מוסך", 80, 100, 32, Color.WHITE);
-        label(c, "בחר רכב לרכישה או החלפה", 80, 130, 17, Color.LTGRAY);
-
-        for (int i = 0; i < VEHICLES.length; i++) {
-            int col = i % 3;
-            int row = i / 3;
-            float x = 75 + col * 250;
-            float y = 155 + row * 78;
-            int price = VEHICLES[i].price;
-            String cost = price == 0 ? "שלך" : "₪" + price;
-            button(c, x, y, 225, 62, VEHICLES[i].name + "  " + cost);
-            label(c, VEHICLES[i].subtitle, x, y + 56, 13, Color.LTGRAY);
-        }
-
-        button(c, w - 170, h - 110, 110, 55, "סגור");
-    }
-
-    private void drawMenu(Canvas c) {
-        dim(c);
-        float w = getWidth();
-        float h = getHeight();
-
-        panel(c, 90, 70, w - 90, h - 70);
-        label(c, "הגדרות משחק", w / 2f - 90, 125, 30, Color.WHITE);
-        button(c, w / 2f - 160, 175, 320, 62, "ממשק עברי מלא");
-        button(c, w / 2f - 160, 250, 320, 62, "שליטה פשוטה");
-        button(c, w / 2f - 160, 325, 320, 62, cameraZoom > 1f ? "זום: רחוק" : "זום: רגיל");
-        button(c, w / 2f - 160, h - 145, 320, 62, "חזרה למשחק");
-    }
-
-    private void drawJail(Canvas c) {
-        dim(c);
-        float w = getWidth();
-        float h = getHeight();
-
-        panel(c, 120, 110, w - 120, h - 110);
-        label(c, "נעצרת!", w / 2f - 55, 165, 34, Color.WHITE);
-        label(c, "המרדף הסתיים והשוטרים לקחו אותך לתחנה.", w / 2f - 230, 210, 19, Color.LTGRAY);
-        label(c, "המשחק ממשיך אחרי השחרור.", w / 2f - 145, 242, 17, Color.LTGRAY);
-        button(c, w / 2f - 120, h - 205, 240, 70, "שחרור");
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_UP) return true;
-
-        float x = event.getX();
-        float y = event.getY();
-        float w = getWidth();
-        float h = getHeight();
-
-        if (mode == MODE_JAIL) {
-            if (y > h - 230) {
-                wanted = 0;
-                wantedUntil = 0;
-                mode = MODE_GAME;
-                playerX = 0;
-                playerY = -50;
-            }
-            return true;
-        }
-
-        if (mode == MODE_GARAGE) {
-            if (y > h - 145) {
-                mode = MODE_GAME;
-                return true;
-            }
-            for (int i = 0; i < VEHICLES.length; i++) {
-                int col = i % 3;
-                int row = i / 3;
-                float bx = 75 + col * 250;
-                float by = 155 + row * 78;
-                if (x >= bx && x <= bx + 225 && y >= by && y <= by + 62) {
-                    if (VEHICLES[i].price == 0 || cash >= VEHICLES[i].price) {
-                        if (i != ownedVehicle && VEHICLES[i].price > 0) {
-                            cash -= VEHICLES[i].price;
-                        }
-                        ownedVehicle = i;
-                    }
-                    mode = MODE_GAME;
-                    return true;
-                }
-            }
-            return true;
-        }
-
-        if (mode == MODE_MENU) {
-            if (y > h - 175) {
-                mode = MODE_GAME;
-            } else if (y >= 315 && y <= 400) {
-                cameraZoom = cameraZoom > 1f ? 1f : 1.28f;
-            }
-            return true;
-        }
-
-        // Direction buttons.
-        if (y >= h - 215 && y <= h - 72) {
-            if (x < 105) inputX = -1f;
-            else if (x >= 195 && x < 285) inputX = 1f;
-            else if (x >= 100 && x < 195 && y < h - 130) inputY = -1f;
-            else if (x >= 100 && x < 195) inputY = 1f;
-        }
-
-        // Exit / enter nearest vehicle.
-        if (x > w - 345 && x < w - 230 && y > h - 175) {
-            if (inVehicle) {
-                inVehicle = false;
-            } else {
-                WorldVehicle nearest = nearestUsableVehicle();
-                if (nearest != null) {
-                    ownedVehicle = nearest.type >= 0 && nearest.type < VEHICLES.length ? nearest.type : ownedVehicle;
-                    inVehicle = true;
-                }
-            }
-        } else if (x > w - 240 && x < w - 125 && y > h - 175) {
-            mode = MODE_GARAGE;
-        } else if (x > w - 140 && y > h - 175) {
-            mode = MODE_MENU;
-        } else if (x > w - 240 && x < w - 125 && y > h - 112) {
-            cameraZoom = cameraZoom > 1f ? 1f : 1.28f;
-        } else if (x > w - 140 && y > h - 112) {
-            wanted = Math.min(5, wanted + 1);
-            wantedUntil = System.currentTimeMillis() + 4500L;
-        } else if (x > w - 350 && x < w - 230 && y > h - 112) {
-            fireArcadeShot();
-        }
-
-        return true;
-    }
-
-    private WorldVehicle nearestUsableVehicle() {
-        WorldVehicle best = null;
-        float bestDistance = 165f;
-        for (WorldVehicle v : vehicles) {
-            float dx = v.x - playerX;
-            float dy = v.y - playerY;
-            float d = (float)Math.sqrt(dx * dx + dy * dy);
-            if (d < bestDistance && (v.type >= 0 && v.type < VEHICLES.length)) {
-                bestDistance = d;
-                best = v;
-            }
-        }
-        return best;
-    }
-
-    private void fireArcadeShot() {
-        long now = System.currentTimeMillis();
-        if (now - lastShot < 280L) return;
-        lastShot = now;
-        shots.add(new Shot(playerX, playerY - 38f, 0f, -1f));
-        wanted = Math.min(5, Math.max(1, wanted + 1));
-        wantedUntil = now + 4500L;
-        cash += 25;
-    }
-
-    private void updateShots(float dt) {
-        Iterator<Shot> it = shots.iterator();
-        while (it.hasNext()) {
-            Shot s = it.next();
-            s.x += s.dx * 760f * dt;
-            s.y += s.dy * 760f * dt;
-            boolean remove = Math.abs(s.x) > 2050 || Math.abs(s.y) > 1300;
-            if (!remove) {
-                for (Police unit : police) {
-                    float d = (float)Math.hypot(unit.x - s.x, unit.y - s.y);
-                    if (d < 44f) { unit.x -= s.dx * 18f; unit.y -= s.dy * 18f; cash += 50; remove = true; break; }
-                }
-            }
-            if (!remove) {
-                for (Citizen person : citizens) {
-                    float d = (float)Math.hypot(person.x - s.x, person.y - s.y);
-                    if (d < 34f) { person.dx *= -1f; person.dy *= -1f; cash += 50; remove = true; break; }
-                }
-            }
-            if (remove) it.remove();
-        }
-    }
-
-    private void drawCitizen(Canvas c, float x, float y) {
-        fill(c, Color.rgb(28, 32, 36));
-        c.drawCircle(x, y - 18, 10, p);
-        fill(c, Color.rgb(63, 116, 175));
-        c.drawRoundRect(new RectF(x - 10, y - 6, x + 10, y + 28), 7, 7, p);
-        fill(c, Color.rgb(34, 34, 34));
-        c.drawRect(x - 12, y + 25, x - 3, y + 47, p);
-        c.drawRect(x + 3, y + 25, x + 12, y + 47, p);
-    }
-
-    private void drawShot(Canvas c, float x, float y) {
-        fill(c, Color.rgb(255, 214, 75));
-        c.drawCircle(x, y, 7, p);
-        p.setStrokeWidth(4);
-        p.setColor(Color.argb(160, 255, 240, 120));
-        c.drawLine(x, y + 10, x, y + 28, p);
-    }
-
-    private static float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    private void fill(Canvas c, int color) {
-        p.setStyle(Paint.Style.FILL);
-        p.setColor(color);
-    }
-
-    private void label(Canvas c, String text, float x, float y, float size, int color) {
-        p.setTypeface(Typeface.create("sans", Typeface.BOLD));
-        p.setTextSize(size);
-        p.setStyle(Paint.Style.FILL);
-        p.setColor(color);
-        c.drawText(text, x, y, p);
-    }
-
-    private void button(Canvas c, float x, float y, float width, float height, String text) {
-        fill(c, 0xE51A2128);
-        c.drawRoundRect(new RectF(x, y, x + width, y + height), 15, 15, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2);
-        p.setColor(0xFF738091);
-        c.drawRoundRect(new RectF(x, y, x + width, y + height), 15, 15, p);
-        p.setStyle(Paint.Style.FILL);
-        p.setTypeface(Typeface.create("sans", Typeface.BOLD));
-        p.setTextSize(16);
-        p.setColor(Color.WHITE);
-        float tw = p.measureText(text);
-        c.drawText(text, x + (width - tw) / 2f, y + height / 2f + 6f, p);
-    }
-
-    private void panel(Canvas c, float l, float t, float r, float b) {
-        fill(c, 0xF02A3038);
-        c.drawRoundRect(new RectF(l, t, r, b), 25, 25, p);
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(2);
-        p.setColor(0xFF7B8796);
-        c.drawRoundRect(new RectF(l, t, r, b), 25, 25, p);
-        p.setStyle(Paint.Style.FILL);
-    }
-
-    private void dim(Canvas c) {
-        fill(c, 0xAA000000);
-        c.drawRect(0, 0, getWidth(), getHeight(), p);
-    }
-
-    private static class VehicleSpec {
-        final String name;
-        final String subtitle;
-        final int price;
-        final int color;
-        final int type;
-
-        VehicleSpec(String name, String subtitle, int price, int color, int type) {
-            this.name = name;
-            this.subtitle = subtitle;
-            this.price = price;
-            this.color = color;
-            this.type = type;
-        }
-    }
-
-    private static class WorldVehicle {
-        final String name;
-        float x;
-        float y;
-        final int color;
-        final int type;
-        final boolean traffic;
-        final float dirX;
-        final float dirY;
-
-        WorldVehicle(String name, float x, float y, int color, int type, boolean traffic) {
-            this.name = name;
-            this.x = x;
-            this.y = y;
-            this.color = color;
-            this.type = type;
-            this.traffic = traffic;
-            this.dirX = traffic ? (x < 0 ? 1f : -1f) : 0f;
-            this.dirY = traffic ? (y < 0 ? 1f : -1f) : 0f;
-        }
-    }
-
-    private static class Shot {
-        float x, y, dx, dy;
-        Shot(float x, float y, float dx, float dy) { this.x=x; this.y=y; this.dx=dx; this.dy=dy; }
-    }
-
-    private static class Citizen {
-        float x, y, dx, dy;
-        Citizen(float x, float y) { this.x=x; this.y=y; this.dx=(x%2==0?0.7f:-0.6f); this.dy=(y%2==0?0.35f:-0.3f); }
-    }
-
-    private static class Police {
-        float x;
-        float y;
-        final float dirX;
-        final float dirY;
-
-        Police(float x, float y) {
-            this.x = x;
-            this.y = y;
-            this.dirX = 0.25f;
-            this.dirY = 0.18f;
-        }
-    }
+    void held(float x,float y,int h){if(x<105)r.setLeft(true);else if(x>185&&x<280)r.setRight(true);else if(x>=100&&x<=185&&y<h-108)r.setGas(true);else if(x>=100&&x<=185)r.setBrake(true);}
+    void stop(){r.setLeft(false);r.setRight(false);r.setGas(false);r.setBrake(false);}
+    protected void onDetachedFromWindow(){stop();super.onDetachedFromWindow();}
+  }
 }
