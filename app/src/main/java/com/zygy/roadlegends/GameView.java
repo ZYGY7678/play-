@@ -58,7 +58,8 @@ public final class GameView extends FrameLayout {
 
     R(){
       for(int i=0;i<42;i++)objs.add(new Obj(-95+rnd.nextFloat()*190,-40+rnd.nextFloat()*83,5+rnd.nextFloat()*4,8+rnd.nextFloat()*18));
-      for(int i=0;i<18;i++)traffic.add(new Obj(-82+rnd.nextFloat()*164,-28+rnd.nextFloat()*58,3.8f,6));
+      float[] lanes={-39f,-13f,13f,39f};
+      for(int i=0;i<18;i++){Obj o=new Obj(lanes[i%lanes.length],-14+rnd.nextFloat()*50,3.8f,5.2f);o.rot=(i%2==0)?0:(float)Math.PI;o.kind=i%7;traffic.add(o);}
       for(int i=0;i<10;i++)enemies.add(new Enemy(-70+(i%5)*35,18+(i/5)*17,i%4)); for(int i=0;i<5;i++)policeUnits.add(new PoliceUnit(-38+i*19,10,i));
     }
     public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig c){
@@ -78,22 +79,46 @@ public final class GameView extends FrameLayout {
       GLES20.glClearColor(.03f+.08f*dl,.05f+.10f*dl,.07f+.13f*dl,1);GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
       GLES20.glUseProgram(pr);GLES20.glUniform3f(ul,-.3f,1,-.45f);
       box(0,-1,10,115,1,140,new float[]{.14f,.21f,.16f,1});
-      box(0,-.42f,10,105,.2f,58,new float[]{.09f,.10f,.12f,1});
-      box(0,-.30f,7,105,.14f,8,new float[]{.04f,.05f,.06f,1});
-      box(-34,-.30f,15,8,.14f,54,new float[]{.04f,.05f,.06f,1});
-      box(37,-.30f,18,9,.14f,56,new float[]{.04f,.05f,.06f,1});
-      for(int i=-8;i<9;i++)box(i*11,-.21f,7,2,.03f,.14f,new float[]{.75f,.65f,.18f,1});
+      // Main asphalt carriageway.
+      box(0,-.48f,10,105,.24f,58,new float[]{.075f,.085f,.095f,1});
+      box(0,-.35f,10,102,.08f,56,new float[]{.055f,.06f,.065f,1});
+      // Curbs + wide sidewalks on both sides.
+      box(-54,-.23f,10,3.2f,.28f,58,new float[]{.48f,.49f,.46f,1});
+      box(54,-.23f,10,3.2f,.28f,58,new float[]{.48f,.49f,.46f,1});
+      box(-61,-.20f,10,11,.30f,58,new float[]{.34f,.36f,.35f,1});
+      box(61,-.20f,10,11,.30f,58,new float[]{.34f,.36f,.35f,1});
+      // Sidewalk paving rhythm.
+      for(int i=0;i<12;i++){
+        float zz=-16+i*5.2f;
+        box(-61,-.02f,zz,10,.035f,.09f,new float[]{.25f,.27f,.27f,1});
+        box(61,-.02f,zz,10,.035f,.09f,new float[]{.25f,.27f,.27f,1});
+      }
+      // Lane dividers and edge lines.
+      for(int i=0;i<11;i++){float zz=-14+i*5.4f;box(-26,-.20f,zz,.12f,.035f,2.2f,new float[]{.86f,.77f,.48f,1});box(26,-.20f,zz,.12f,.035f,2.2f,new float[]{.86f,.77f,.48f,1});}
+      box(-49,-.19f,10,.10f,.035f,55,new float[]{.88f,.82f,.55f,1});
+      box(49,-.19f,10,.10f,.035f,55,new float[]{.88f,.82f,.55f,1});
+      // Cross street / intersection.
+      box(0,-.46f,18,108,.22f,10,new float[]{.072f,.082f,.092f,1});
+      box(0,-.20f,12,101,.035f,.16f,new float[]{.88f,.82f,.55f,1});
+      box(0,-.20f,24,101,.035f,.16f,new float[]{.88f,.82f,.55f,1});
+      for(int i=-21;i<=21;i+=6)box(i,-.18f,13.2f,3.4f,.035f,.72f,new float[]{.94f,.94f,.90f,1});
+      for(int i=-21;i<=21;i+=6)box(i,-.18f,22.8f,3.4f,.035f,.72f,new float[]{.94f,.94f,.90f,1});
+      // Street lights and trees.
+      int streetCount=quality==0?6:10, treeCount=quality==0?12:22;
+      for(int i=0;i<streetCount;i++){float zz=-15+i*5.8f;streetLight(-58,zz,i);streetLight(58,zz,i);}
+      for(int i=0;i<treeCount;i++){float side=(i%2==0)?-68f:68f;float zz=-18+(i*6.7f)%58f;tree(side,zz,i%3);}
+      // Harbor/sea.
       box(0,-.2f,68,105,.2f,10,new float[]{.38f,.29f,.20f,1});
       box(0,-.78f,96,115,.12f,43,new float[]{.03f,.25f,.36f,1});
       for(int i=0;i<13;i++)box((float)Math.sin(time+i)*1.2f,-.69f,77+i*2.8f,86,.025f,.06f,new float[]{.20f,.58f,.68f,1});
       box(-74,-.28f,-84,32,.12f,9,new float[]{.07f,.08f,.09f,1});box(-102,.6f,-92,4,2,28,new float[]{.32f,.34f,.37f,1});
       int bmax=quality==0?18:(quality==1?32:objs.size());
       for(int i=0;i<bmax;i++){Obj o=objs.get(i);box(o.x,o.h/2,o.z,o.w,o.h,o.w*.82f,new float[]{.25f+.1f*dl,.27f+.1f*dl,.31f+.1f*dl,1});box(o.x,o.h*.52f,o.z-o.w*.43f,o.w*.48f,o.h*.30f,.04f,new float[]{.06f,.12f,.16f,1});}
-      for(int i=0;i<(quality==0?22:40);i++){Obj o=objs.get((i*3)%objs.size());box(o.x+6,o.h*.20f,o.z+7,.45f,3.2f,.45f,new float[]{.24f,.14f,.08f,1});box(o.x+6,4,o.z+7,3.8f,3.8f,3.8f,new float[]{.07f,.30f,.13f,1});}
-      for(Obj o:traffic)car(o.x,o.z,0);
+      for(int i=0;i<(quality==0?10:22);i++){Obj o=objs.get((i*3)%objs.size());tree(o.x+6,o.z+7,i%3);}
+      for(Obj o:traffic)car(o.x,o.z,o.kind,o.rot);
       for(Enemy e:enemies) enemy(e);
             for(PoliceUnit p:policeUnits) police(p);
-      if(onFoot)player();else car(x,z,vehicle);
+      if(onFoot)player();else car(x,z,vehicle,yaw);
     }
     void update(float dt){
       float tar=gas?(15+vehicle*1.2f):0;if(brake)tar=-7;
@@ -145,7 +170,12 @@ public final class GameView extends FrameLayout {
         if(robberyTimer<=0) finishRobbery();
       }
       time+=dt*.18;if(time>=24)time-=24;
-      for(Obj o:traffic){o.z+=(o.x<0?1:-1)*o.h*dt;if(o.z>65)o.z=-60;if(o.z<-65)o.z=65;}
+      for(Obj o:traffic){
+        float dir=(o.rot<1)?1f:-1f;
+        o.z+=dir*o.h*dt;
+        if(o.z>40)o.z=-18;
+        if(o.z<-19)o.z=40;
+      }
       shotCooldown=Math.max(0,shotCooldown-dt); cameraShake=Math.max(0,cameraShake-dt*4.5f);
       if(onFoot && Math.abs(spd)>.7f){
         footstepTimer-=dt;
@@ -156,7 +186,38 @@ public final class GameView extends FrameLayout {
         if(p.doorEvent){p.doorEvent=false;audio.playDoor();audio.playShout();}
       }
     }
-    void car(float X,float Z,int t){float[] c=color(t);box(X,.58f,Z,4.2f,.95f,6.7f,c);box(X,1.25f,Z-.2f,3,.8f,3.35f,new float[]{.04f,.07f,.09f,1});for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})box(X+sx*1.7f,.38f,Z+sz*2.35f,.45f,.58f,1.05f,new float[]{.02f,.02f,.02f,1});}
+    void car(float X,float Z,int t){car(X,Z,t,0);}
+    void car(float X,float Z,int t,float rot){
+      float[] c=color(t);
+      // soft ground shadow / contact patch
+      boxRot(X,.02f,Z,4.9f,.025f,7.2f,rot,new float[]{.018f,.020f,.022f,1});
+      boxRot(X,.58f,Z,4.2f,.95f,6.7f,rot,c);
+      boxRot(X,1.17f,Z-.20f,3.05f,.78f,3.45f,rot,new float[]{.035f,.065f,.085f,1});
+      boxRot(X,1.53f,Z-.15f,2.55f,.12f,2.55f,rot,new float[]{.10f,.13f,.15f,1});
+      for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})
+        boxRot(X+sx*1.72f,.38f,Z+sz*2.35f,.45f,.58f,1.05f,rot,new float[]{.018f,.018f,.02f,1});
+      // Front/rear light clusters and bumpers.
+      boxRot(X-.95f,.72f,Z+3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
+      boxRot(X+.95f,.72f,Z+3.18f,.72f,.16f,.12f,rot,new float[]{.95f,.78f,.48f,1});
+      boxRot(X-.95f,.72f,Z-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
+      boxRot(X+.95f,.72f,Z-3.18f,.72f,.16f,.12f,rot,new float[]{.55f,.07f,.05f,1});
+      boxRot(X,.44f,Z+3.25f,3.55f,.12f,.18f,rot,new float[]{.06f,.07f,.075f,1});
+      // Side mirrors.
+      boxRot(X-1.98f,1.23f,Z+.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
+      boxRot(X+1.98f,1.23f,Z+.75f,.22f,.16f,.52f,rot,new float[]{.04f,.05f,.06f,1});
+    }
+    void streetLight(float X,float Z,int idx){
+      box(X,1.9f,Z,.12f,3.8f,.12f,new float[]{.12f,.14f,.14f,1});
+      box(X+(X<0?1.0f:-1.0f),3.75f,Z,.12f,.12f,1.9f,new float[]{.12f,.14f,.14f,1});
+      box(X+(X<0?1.85f:-1.85f),3.58f,Z,.42f,.18f,.58f,new float[]{.30f,.31f,.28f,1});
+    }
+    void tree(float X,float Z,int variant){
+      float s=variant==0?1f:(variant==1?.82f:1.18f);
+      box(X,.95f*s,Z,.52f*s,1.9f*s,.52f*s,new float[]{.24f,.14f,.075f,1});
+      box(X,2.05f*s,Z,2.5f*s,1.8f*s,2.5f*s,new float[]{.08f,.28f,.12f,1});
+      box(X-.72f*s,2.18f*s,Z+.16f,1.25f*s,1.25f*s,1.35f*s,new float[]{.07f,.23f,.10f,1});
+      box(X+.66f*s,2.30f*s,Z-.12f,1.35f*s,1.15f*s,1.28f*s,new float[]{.10f,.32f,.13f,1});
+    }
     void enemy(Enemy e){
       if(e.defeated)return;
       int tier=difficultyTier();
@@ -203,15 +264,14 @@ public final class GameView extends FrameLayout {
       box(e.x-.5f*scale+hp*.5f*scale,2.73f*scale,e.z,hp*1.0f*scale,.09f*scale,.09f*scale,new float[]{.30f,.72f,.35f,1});
     }
     void police(PoliceUnit p){
-      float[] body={.08f,.10f,.12f,1};
-      box(p.x,.58f,p.z,4.3f,.96f,6.8f,body);
-      box(p.x,1.24f,p.z-.2f,3.05f,.80f,3.38f,new float[]{.04f,.07f,.09f,1});
-      for(int sx:new int[]{-1,1})for(int sz:new int[]{-1,1})box(p.x+sx*1.72f,.38f,p.z+sz*2.35f,.45f,.58f,1.05f,new float[]{.018f,.018f,.02f,1});
-      box(p.x-.62f,1.58f,p.z+2.45f,1.05f,.11f,.22f,new float[]{.06f,.30f,.95f,1});
-      box(p.x+.62f,1.58f,p.z+2.45f,1.05f,.11f,.22f,new float[]{.92f,.10f,.12f,1});
+      car(p.x,p.z,5,p.yaw);
+      float blink=(float)Math.sin(time*16.0f);
+      float blue=blink>0?1f:.18f,red=blink<0?1f:.18f;
+      boxRot(p.x-.62f,1.62f,p.z+.15f,1.05f,.14f,.22f,p.yaw,new float[]{.06f,.30f,blue,1});
+      boxRot(p.x+.62f,1.62f,p.z+.15f,1.05f,.14f,.22f,p.yaw,new float[]{red,.06f,.06f,1});
       float sideX=(float)Math.cos(p.yaw),sideZ=-(float)Math.sin(p.yaw);
       float open=1.0f+p.door*.55f;
-      box(p.x+sideX*2.08f*open,.95f,p.z+sideZ*2.08f,.10f,1.28f,1.65f,new float[]{.07f,.08f,.10f,1});
+      boxRot(p.x+sideX*2.08f*open,.95f,p.z+sideZ*2.08f,.10f,1.28f,1.65f,p.yaw,new float[]{.07f,.08f,.10f,1});
       if(p.officer>.02f){
         float ox=p.x+sideX*(2.15f+1.0f*p.officer),oz=p.z+sideZ*(2.0f+1.0f*p.officer);
         float stride=(float)Math.sin(p.anim*10.0f)*.18f*p.officer;
@@ -224,18 +284,29 @@ public final class GameView extends FrameLayout {
       }
     }
     void player(){box(x,1.1f,z,1,1.9f,.65f,new float[]{.10f,.28f,.50f,1});box(x,2.25f,z,.55f,.58f,.55f,new float[]{.62f,.42f,.30f,1});box(x-.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});box(x+.35f,1.1f,z,.28f,1.5f,.32f,new float[]{.06f,.07f,.08f,1});}
-    void box(float X,float Y,float Z,float sx,float sy,float sz,float[] col){
-      Matrix.setIdentityM(M,0);Matrix.translateM(M,0,X,Y,Z);Matrix.scaleM(M,0,sx/2,sy/2,sz/2);
+    void boxRot(float X,float Y,float Z,float sx,float sy,float sz,float rot,float[] col){
+      Matrix.setIdentityM(M,0);
+      Matrix.translateM(M,0,X,Y,Z);
+      Matrix.rotateM(M,0,(float)(rot*180.0/Math.PI),0,1,0);
+      Matrix.scaleM(M,0,sx/2,sy/2,sz/2);
+      prepareDraw(M,col);
+    }
+    void prepareDraw(float[] model,float[] col){
       float ex,ey,ez,cx,cy,cz;
       if(camera==2){ex=x;ey=2.1f;ez=z-.8f;cx=x+(float)Math.sin(yaw)*15;cy=1.8f;cz=z+(float)Math.cos(yaw)*15;}
       else {float d=camera==1?7.5f:11.5f;ex=x-(float)Math.sin(yaw)*d;ey=camera==1?4:6.2f;ez=z-(float)Math.cos(yaw)*d;cx=x;cy=1;cz=z;}
       float shake=(cameraShake>0?cameraShake:0);
-      float sx=(float)Math.sin(time*91.0f)*shake*.10f, sz=(float)Math.cos(time*77.0f)*shake*.10f;
-      Matrix.setLookAtM(V,0,ex+sx,ey+shake*.06f,ez+sz,cx+sx*.35f,cy,cz+sz*.35f,0,1,0);Matrix.multiplyMM(VP,0,P,0,V,0);Matrix.multiplyMM(MVP,0,VP,0,M,0);
+      float ox=(float)Math.sin(time*91.0f)*shake*.10f, oz=(float)Math.cos(time*77.0f)*shake*.10f;
+      Matrix.setLookAtM(V,0,ex+ox,ey+shake*.06f,ez+oz,cx+ox*.35f,cy,cz+oz*.35f,0,1,0);
+      Matrix.multiplyMM(VP,0,P,0,V,0);Matrix.multiplyMM(MVP,0,VP,0,model,0);
       GLES20.glUniformMatrix4fv(um,1,false,MVP,0);GLES20.glUniform4fv(uc,1,col,0);
       cube.position(0);GLES20.glEnableVertexAttribArray(ap);GLES20.glVertexAttribPointer(ap,3,GLES20.GL_FLOAT,false,24,cube);
       cube.position(3);GLES20.glEnableVertexAttribArray(an);GLES20.glVertexAttribPointer(an,3,GLES20.GL_FLOAT,false,24,cube);
       GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,36);GLES20.glDisableVertexAttribArray(ap);GLES20.glDisableVertexAttribArray(an);
+    }
+    void box(float X,float Y,float Z,float sx,float sy,float sz,float[] col){
+      Matrix.setIdentityM(M,0);Matrix.translateM(M,0,X,Y,Z);Matrix.scaleM(M,0,sx/2,sy/2,sz/2);
+      prepareDraw(M,col);
     }
     FloatBuffer makeCube(){float[]v={-1,-1,-1,0,0,-1,1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,1,-1,0,0,-1,-1,-1,1,0,0,1,1,1,1,0,0,1,1,-1,1,0,0,1,-1,-1,1,0,0,1,-1,1,1,0,0,1,1,1,1,0,0,1,-1,-1,-1,-1,0,0,-1,1,1,-1,0,0,-1,-1,1,-1,-1,0,0,-1,-1,-1,-1,-1,0,0,-1,1,-1,-1,-1,0,0,-1,1,1,-1,-1,0,0,1,-1,-1,1,1,0,0,1,1,1,1,1,0,0,1,-1,-1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,-1,1,0,0,-1,1,-1,0,1,0,1,1,-1,0,1,0,1,1,1,0,1,0,-1,1,-1,0,1,0,1,1,1,0,1,0,-1,1,1,0,1,0,-1,-1,-1,0,-1,0,-1,-1,1,0,-1,0,1,-1,1,0,-1,0,-1,-1,-1,0,-1,0,1,-1,1,0,-1,0,1,-1,-1,0,-1,0};ByteBuffer b=ByteBuffer.allocateDirect(v.length*4).order(ByteOrder.nativeOrder());FloatBuffer f=b.asFloatBuffer();f.put(v).position(0);return f;}
     int shader(int type,String s){int q=GLES20.glCreateShader(type);GLES20.glShaderSource(q,s);GLES20.glCompileShader(q);return q;}
@@ -344,8 +415,8 @@ public final class GameView extends FrameLayout {
           return;
         }
         float lane=(index-2)*2.4f;
-        float tx=px+lane;
-        float tz=Math.max(-15f,Math.min(34f,pz-pyaw*0f));
+        float tx=cl(px+lane,-47f,47f);
+        float tz=cl(pz,-14f,36f);
         float d=(float)Math.hypot(tx-x,tz-z);
         if(d>7.0f){
           steer(tx,tz,dt,6.0f+wanted*1.4f);
