@@ -1,7 +1,4 @@
 name: Build Road Legends APK
-concurrency:
-  group: road-legends-build
-  cancel-in-progress: true
 on:
   push:
     branches: [ "main" ]
