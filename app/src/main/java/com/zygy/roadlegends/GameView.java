@@ -51,7 +51,7 @@ public final class GameView extends FrameLayout {
     private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>();
     private final Random rnd=new Random(77); private final Random eventRnd=new Random(20261005L);
     float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0; int missionMilestone=0;
-    boolean gas,brake,left,right,onFoot,flash,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
+    boolean gas,brake,left,right,onFoot,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
     R(){
@@ -141,7 +141,6 @@ public final class GameView extends FrameLayout {
           }
         }
       }
-      if(flash){flash=false;resolveCombat();}
       crimeCooldown=Math.max(0,crimeCooldown-dt);
       if(robberyRunning){
         robberyTimer-=dt;
@@ -241,7 +240,7 @@ public final class GameView extends FrameLayout {
     int difficulty(){return difficultyTier();} String difficultyText(){return difficultyName();} int defeated(){return defeated;} boolean robberyRunning(){return robberyRunning;} int robberyReward(){return robberyReward;}
     String mission(){if(wanted>0)return"מרדף פעיל • הימלט מהאזור";if(missionTime<24)return"משימת פתיחה • היכרות עם העיר";if(missionTime<52)return"מרוץ שכונתי • השג את נקודת הסיום";if(missionTime<84)return"סיור בנמל • הגעה לרציף";if(missionTime<120)return"קו החוף • חקור את האזור";return"עולם פתוח • בחר יעד משלך";}
     void setGas(boolean b){gas=b;}void setBrake(boolean b){brake=b;}void setLeft(boolean b){left=b;}void setRight(boolean b){right=b;}
-    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){action=true;} void robbery(){startRobbery();}
+    void toggleCamera(){camera=(camera+1)%3;}void enterExit(){onFoot=!onFoot;spd=0;}void trigger(){startRobbery();} void robbery(){startRobbery();}
     void quality(int q){quality=Math.max(0,Math.min(2,q));}boolean buy(int i){int[]p=prices();if(i==vehicle)return true;if(cash<p[i])return false;cash-=p[i];vehicle=i;spd=0;return true;}
     static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
     static final class Enemy{float x,z;int type,hp,maxHp,state=0;float phase;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
