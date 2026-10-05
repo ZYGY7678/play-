@@ -50,7 +50,7 @@ public final class GameView extends FrameLayout {
     private final float[] P=new float[16],V=new float[16],VP=new float[16],M=new float[16],MVP=new float[16];
     private final List<Obj> objs=new ArrayList<>(),traffic=new ArrayList<>(); private final List<Enemy> enemies=new ArrayList<>(); private final List<PoliceUnit> policeUnits=new ArrayList<>(); private final GameAudio audio=new GameAudio();
     private final Random rnd=new Random(77); private final Random eventRnd=new Random(20261005L);
-    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0,footstepTimer=0,shotCooldown=0; int missionMilestone=0;
+    float x=0,z=4,yaw=0,spd=0,time=10.5f,fps=60,missionTime=0,playerHealth=100,combatCooldown=0,crimeCooldown=0,robberyTimer=0,footstepTimer=0,shotCooldown=0,cameraShake=0; int missionMilestone=0;
     boolean gas,brake,left,right,onFoot,robberyRunning; int cash=12500,wanted=0,quality=1,vehicle=0,camera=0,defeated=0,robberyReward=0;
     private long last=0,fs=0;private int fc=0; private float wantedT=0;
 
@@ -106,6 +106,7 @@ public final class GameView extends FrameLayout {
       int tier=difficultyTier();
       for(Enemy e:enemies){
         if(e.defeated) continue;
+        e.reactionTimer=Math.max(0,e.reactionTimer-dt);
         float dx=x-e.x,dz=z-e.z,dist=(float)Math.hypot(dx,dz);
 
         NpcDirector.Decision decision=NpcDirector.decide(wanted,dist,tier,e.type);
@@ -143,7 +144,7 @@ public final class GameView extends FrameLayout {
       }
       time+=dt*.18;if(time>=24)time-=24;
       for(Obj o:traffic){o.z+=(o.x<0?1:-1)*o.h*dt;if(o.z>65)o.z=-60;if(o.z<-65)o.z=65;}
-      shotCooldown=Math.max(0,shotCooldown-dt);
+      shotCooldown=Math.max(0,shotCooldown-dt); cameraShake=Math.max(0,cameraShake-dt*4.5f);
       if(onFoot && Math.abs(spd)>.7f){
         footstepTimer-=dt;
         if(footstepTimer<=0){audio.playFootstep(Math.abs(spd)>2.0f);footstepTimer=Math.abs(spd)>2.0f?.24f:.40f;}
@@ -157,6 +158,14 @@ public final class GameView extends FrameLayout {
     void enemy(Enemy e){
       if(e.defeated)return;
       int tier=difficultyTier();
+      float react=Math.max(0,Math.min(1,e.reactionTimer/.72f));
+      float wave=(float)Math.sin((1f-react)*Math.PI);
+      float rx=0,rz=0;
+      if(e.reaction==1) rx=.42f*wave;
+      else if(e.reaction==2) rz=-.42f*wave;
+      else if(e.reaction==3){rz=.28f*wave;}
+      else if(e.reaction==4){rz=.55f*wave;}
+
       float[] body;
       switch(e.type){
         case 3: body=new float[]{.30f,.16f,.34f,1}; break;
@@ -165,11 +174,28 @@ public final class GameView extends FrameLayout {
         default: body=new float[]{.10f,.15f,.20f,1};
       }
       float scale=1f+Math.min(.18f,tier*.025f);
-      box(e.x,1.05f*scale,e.z,.9f*scale,1.8f*scale,.62f*scale,body);
-      box(e.x,2.2f*scale,e.z,.50f*scale,.55f*scale,.50f*scale,new float[]{.55f,.38f,.28f,1});
-      box(e.x-.32f*scale,1.02f*scale,e.z,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
-      box(e.x+.32f*scale,1.02f*scale,e.z,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
-      if(e.type>=2) box(e.x,2.48f*scale,e.z,.64f*scale,.12f*scale,.56f*scale,new float[]{.12f,.14f,.16f,1});
+      boolean low=(e.reaction==3||e.reaction==4)&&react>.03f;
+      float bodyY=low?(e.reaction==4?.72f:.88f):1.05f*scale;
+      float bodyH=low?(e.reaction==4?1.05f:1.45f)*scale:1.8f*scale;
+      float headY=low?(e.reaction==4?1.38f:1.82f)*scale:2.2f*scale;
+      float legH=low?.92f*scale:1.45f*scale;
+      float legY=low?.70f*scale:1.02f*scale;
+      float px=e.x+rx, pz=e.z+rz;
+      box(px,bodyY,pz,.9f*scale,bodyH,.62f*scale,body);
+      box(px,headY,pz,.50f*scale,.55f*scale,.50f*scale,new float[]{.55f,.38f,.28f,1});
+      if(low){
+        box(px-.32f*scale,legY,pz+(.16f*wave),.24f*scale,legH,.30f*scale,new float[]{.055f,.06f,.07f,1});
+        box(px+.32f*scale,legY,pz-(.16f*wave),.24f*scale,legH,.30f*scale,new float[]{.055f,.06f,.07f,1});
+      }else{
+        box(px-.32f*scale,1.02f*scale,pz,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
+        box(px+.32f*scale,1.02f*scale,pz,.24f*scale,1.45f*scale,.30f*scale,new float[]{.055f,.06f,.07f,1});
+      }
+      if(e.type>=2) box(px,low?1.58f*scale:2.48f*scale,pz,.64f*scale,.12f*scale,.56f*scale,new float[]{.12f,.14f,.16f,1});
+      if(wave>.02f){
+        float dust=.22f+wave*.25f;
+        box(px-.46f*scale,.08f,pz+.12f*wave,.24f*scale,.05f,.24f*scale,new float[]{.38f,.40f,.39f,.72f});
+        box(px+.43f*scale,.08f,pz-.10f*wave,.18f*scale,.05f,.18f*scale,new float[]{.48f,.49f,.45f,.65f});
+      }
       float hp=Math.max(0,e.hp)/(float)Math.max(1,e.maxHp);
       box(e.x,2.72f*scale,e.z,1.0f*scale,.07f*scale,.08f*scale,new float[]{.07f,.07f,.08f,1});
       box(e.x-.5f*scale+hp*.5f*scale,2.73f*scale,e.z,hp*1.0f*scale,.09f*scale,.09f*scale,new float[]{.30f,.72f,.35f,1});
@@ -201,7 +227,9 @@ public final class GameView extends FrameLayout {
       float ex,ey,ez,cx,cy,cz;
       if(camera==2){ex=x;ey=2.1f;ez=z-.8f;cx=x+(float)Math.sin(yaw)*15;cy=1.8f;cz=z+(float)Math.cos(yaw)*15;}
       else {float d=camera==1?7.5f:11.5f;ex=x-(float)Math.sin(yaw)*d;ey=camera==1?4:6.2f;ez=z-(float)Math.cos(yaw)*d;cx=x;cy=1;cz=z;}
-      Matrix.setLookAtM(V,0,ex,ey,ez,cx,cy,cz,0,1,0);Matrix.multiplyMM(VP,0,P,0,V,0);Matrix.multiplyMM(MVP,0,VP,0,M,0);
+      float shake=(cameraShake>0?cameraShake:0);
+      float sx=(float)Math.sin(time*91.0f)*shake*.10f, sz=(float)Math.cos(time*77.0f)*shake*.10f;
+      Matrix.setLookAtM(V,0,ex+sx,ey+shake*.06f,ez+sz,cx+sx*.35f,cy,cz+sz*.35f,0,1,0);Matrix.multiplyMM(VP,0,P,0,V,0);Matrix.multiplyMM(MVP,0,VP,0,M,0);
       GLES20.glUniformMatrix4fv(um,1,false,MVP,0);GLES20.glUniform4fv(uc,1,col,0);
       cube.position(0);GLES20.glEnableVertexAttribArray(ap);GLES20.glVertexAttribPointer(ap,3,GLES20.GL_FLOAT,false,24,cube);
       cube.position(3);GLES20.glEnableVertexAttribArray(an);GLES20.glVertexAttribPointer(an,3,GLES20.GL_FLOAT,false,24,cube);
@@ -212,7 +240,8 @@ public final class GameView extends FrameLayout {
     int link(int a,int b){int q=GLES20.glCreateProgram();GLES20.glAttachShader(q,a);GLES20.glAttachShader(q,b);GLES20.glLinkProgram(q);return q;}
     float[] color(int i){switch(i%8){case 1:return new float[]{.16f,.44f,.92f,1};case 2:return new float[]{.12f,.44f,.20f,1};case 3:return new float[]{.70f,.35f,.16f,1};case 4:return new float[]{.72f,.74f,.78f,1};case 5:return new float[]{.16f,.22f,.19f,1};case 6:return new float[]{.72f,.14f,.13f,1};case 7:return new float[]{.12f,.56f,.66f,1};default:return new float[]{.72f,.18f,.15f,1};}}
 
-    void releaseAudio(){audio.release();}\n    int difficultyTier(){
+    void releaseAudio(){audio.release();}
+    int difficultyTier(){
       int t=1+(int)(missionTime/28f);
       return Math.max(1,Math.min(6,t));
     }
@@ -247,6 +276,10 @@ public final class GameView extends FrameLayout {
       }
       if(best==null){commitCrimeEvent();return;}
       best.hp--;
+      best.reaction=1+eventRnd.nextInt(4);
+      best.reactionTimer=.42f+eventRnd.nextFloat()*.30f;
+      cameraShake=Math.max(cameraShake,.34f);
+      audio.playImpact();
       if(best.hp<=0){best.defeated=true;defeated++;cash+=rewardFor(best.type);}
       else cash+=45+difficultyTier()*12;
       playerHealth=Math.min(100,playerHealth+5);
@@ -334,7 +367,7 @@ public final class GameView extends FrameLayout {
       float wrap(float a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
     }
     static final class Obj{float x,z,w,h;Obj(float x,float z,float w,float h){this.x=x;this.z=z;this.w=w;this.h=h;}}
-    static final class Enemy{float x,z;int type,hp,maxHp,state=0;float phase;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
+    static final class Enemy{float x,z;int type,hp,maxHp,state=0,reaction=0;float phase,reactionTimer=0;boolean defeated=false;Enemy(float x,float z,int type){this.x=x;this.z=z;this.type=type;this.maxHp=1+type;this.hp=maxHp;this.phase=x*.11f+z*.07f;}}
   }
 
   private static final class HUD extends View {
