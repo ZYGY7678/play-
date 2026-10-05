@@ -25,6 +25,8 @@ public class GameView extends View {
     private final Random random = new Random(42);
     private final List<WorldVehicle> vehicles = new ArrayList<>();
     private final List<Police> police = new ArrayList<>();
+    private final List<Shot> shots = new ArrayList<>();
+    private final List<Citizen> citizens = new ArrayList<>();
 
     private float playerX = 0f;
     private float playerY = -50f;
@@ -40,6 +42,7 @@ public class GameView extends View {
     private long wantedUntil = 0L;
     private int mode = MODE_GAME;
     private long lastFrame = System.currentTimeMillis();
+    private long lastShot = 0L;
 
     private static final VehicleSpec[] VEHICLES = {
             new VehicleSpec("Urban GT", "מכונית ספורט", 0, Color.rgb(220, 60, 55), 0),
@@ -102,6 +105,11 @@ public class GameView extends View {
             Police unit = new Police(-1500 + i * 620, -1200 + i * 180);
             police.add(unit);
         }
+        for (int i = 0; i < 16; i++) {
+            float x = -1700 + random.nextInt(3300);
+            float y = -1000 + random.nextInt(1950);
+            citizens.add(new Citizen(x, y));
+        }
     }
 
     private void addVehicle(String name, float x, float y, int color, int type, boolean traffic) {
@@ -158,6 +166,15 @@ public class GameView extends View {
         }
 
         // Wanted level activates nearby patrols.
+        updateShots(dt);
+
+        for (Citizen person : citizens) {
+            person.x += person.dx * 22f * dt;
+            person.y += person.dy * 22f * dt;
+            if (person.x < -1900 || person.x > 1900) person.dx *= -1f;
+            if (person.y < -1100 || person.y > 1100) person.dy *= -1f;
+        }
+
         for (Police unit : police) {
             if (wanted >= 2) {
                 float dx = playerX - unit.x;
@@ -265,6 +282,12 @@ public class GameView extends View {
         // Police.
         for (Police unit : police) {
             drawPolice(c, unit.x, unit.y);
+        }
+        for (Citizen person : citizens) {
+            drawCitizen(c, person.x, person.y);
+        }
+        for (Shot shot : shots) {
+            drawShot(c, shot.x, shot.y);
         }
 
         c.restore();
@@ -479,6 +502,7 @@ public class GameView extends View {
         button(c, w - 124, h - 152, 96, 54, "תפריט");
         button(c, w - 228, h - 90, 96, 50, "זום");
         button(c, w - 124, h - 90, 96, 50, "אירוע");
+        button(c, w - 332, h - 90, 96, 50, "אקשן");
 
         label(c, inVehicle ? "נהיגה" : "ברגל", w / 2f - 30, h - 28, 16, Color.WHITE);
         label(c, "עולם פתוח  •  עיר  •  נמל  •  שטח  •  שדה תעופה", 28, 112, 16, Color.WHITE);
@@ -613,6 +637,8 @@ public class GameView extends View {
         } else if (x > w - 140 && y > h - 112) {
             wanted = Math.min(5, wanted + 1);
             wantedUntil = System.currentTimeMillis() + 4500L;
+        } else if (x > w - 350 && x < w - 230 && y > h - 112) {
+            fireArcadeShot();
         }
 
         return true;
@@ -631,6 +657,57 @@ public class GameView extends View {
             }
         }
         return best;
+    }
+
+    private void fireArcadeShot() {
+        long now = System.currentTimeMillis();
+        if (now - lastShot < 280L) return;
+        lastShot = now;
+        shots.add(new Shot(playerX, playerY - 38f, 0f, -1f));
+        wanted = Math.min(5, Math.max(1, wanted + 1));
+        wantedUntil = now + 4500L;
+        cash += 25;
+    }
+
+    private void updateShots(float dt) {
+        Iterator<Shot> it = shots.iterator();
+        while (it.hasNext()) {
+            Shot s = it.next();
+            s.x += s.dx * 760f * dt;
+            s.y += s.dy * 760f * dt;
+            boolean remove = Math.abs(s.x) > 2050 || Math.abs(s.y) > 1300;
+            if (!remove) {
+                for (Police unit : police) {
+                    float d = (float)Math.hypot(unit.x - s.x, unit.y - s.y);
+                    if (d < 44f) { unit.x -= s.dx * 18f; unit.y -= s.dy * 18f; cash += 50; remove = true; break; }
+                }
+            }
+            if (!remove) {
+                for (Citizen person : citizens) {
+                    float d = (float)Math.hypot(person.x - s.x, person.y - s.y);
+                    if (d < 34f) { person.dx *= -1f; person.dy *= -1f; cash += 50; remove = true; break; }
+                }
+            }
+            if (remove) it.remove();
+        }
+    }
+
+    private void drawCitizen(Canvas c, float x, float y) {
+        fill(c, Color.rgb(28, 32, 36));
+        c.drawCircle(x, y - 18, 10, p);
+        fill(c, Color.rgb(63, 116, 175));
+        c.drawRoundRect(new RectF(x - 10, y - 6, x + 10, y + 28), 7, 7, p);
+        fill(c, Color.rgb(34, 34, 34));
+        c.drawRect(x - 12, y + 25, x - 3, y + 47, p);
+        c.drawRect(x + 3, y + 25, x + 12, y + 47, p);
+    }
+
+    private void drawShot(Canvas c, float x, float y) {
+        fill(c, Color.rgb(255, 214, 75));
+        c.drawCircle(x, y, 7, p);
+        p.setStrokeWidth(4);
+        p.setColor(Color.argb(160, 255, 240, 120));
+        c.drawLine(x, y + 10, x, y + 28, p);
     }
 
     private static float clamp(float value, float min, float max) {
@@ -716,6 +793,16 @@ public class GameView extends View {
             this.dirX = traffic ? (x < 0 ? 1f : -1f) : 0f;
             this.dirY = traffic ? (y < 0 ? 1f : -1f) : 0f;
         }
+    }
+
+    private static class Shot {
+        float x, y, dx, dy;
+        Shot(float x, float y, float dx, float dy) { this.x=x; this.y=y; this.dx=dx; this.dy=dy; }
+    }
+
+    private static class Citizen {
+        float x, y, dx, dy;
+        Citizen(float x, float y) { this.x=x; this.y=y; this.dx=(x%2==0?0.7f:-0.6f); this.dy=(y%2==0?0.35f:-0.3f); }
     }
 
     private static class Police {
