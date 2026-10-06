@@ -1,53 +1,8 @@
 package com.example.contacts.keys;
-
-import android.view.KeyEvent;
-
-public final class KeyMapper {
-    private KeyMapper() {}
-
-    public enum Action {
-        UP, DOWN, LEFT, RIGHT, SELECT, CALL, BACK, MENU,
-        SOFT_LEFT, SOFT_RIGHT, DIGIT, STAR, POUND, PAGE_UP, PAGE_DOWN, OTHER
-    }
-
-    public static Action map(KeyEvent e, boolean menuBackMapping) {
-        if (e == null) return Action.OTHER;
-        int k = e.getKeyCode();
-        switch (k) {
-            case KeyEvent.KEYCODE_DPAD_UP: return Action.UP;
-            case KeyEvent.KEYCODE_DPAD_DOWN: return Action.DOWN;
-            case KeyEvent.KEYCODE_DPAD_LEFT: return Action.LEFT;
-            case KeyEvent.KEYCODE_DPAD_RIGHT: return Action.RIGHT;
-            case KeyEvent.KEYCODE_DPAD_CENTER:
-            case KeyEvent.KEYCODE_ENTER: return Action.SELECT;
-            case KeyEvent.KEYCODE_CALL: return Action.CALL;
-            case KeyEvent.KEYCODE_ENDCALL:
-            case KeyEvent.KEYCODE_BACK: return Action.BACK;
-            case KeyEvent.KEYCODE_MENU: return menuBackMapping ? Action.SOFT_LEFT : Action.MENU;
-            case KeyEvent.KEYCODE_SOFT_LEFT: return Action.SOFT_LEFT;
-            case KeyEvent.KEYCODE_SOFT_RIGHT: return menuBackMapping ? Action.BACK : Action.SOFT_RIGHT;
-            case KeyEvent.KEYCODE_STAR: return Action.STAR;
-            case KeyEvent.KEYCODE_POUND: return Action.POUND;
-            case KeyEvent.KEYCODE_VOLUME_UP: return Action.PAGE_UP;
-            case KeyEvent.KEYCODE_VOLUME_DOWN: return Action.PAGE_DOWN;
-            case KeyEvent.KEYCODE_0: return Action.DIGIT;
-            case KeyEvent.KEYCODE_1: return Action.DIGIT;
-            case KeyEvent.KEYCODE_2: return Action.DIGIT;
-            case KeyEvent.KEYCODE_3: return Action.DIGIT;
-            case KeyEvent.KEYCODE_4: return Action.DIGIT;
-            case KeyEvent.KEYCODE_5: return Action.DIGIT;
-            case KeyEvent.KEYCODE_6: return Action.DIGIT;
-            case KeyEvent.KEYCODE_7: return Action.DIGIT;
-            case KeyEvent.KEYCODE_8: return Action.DIGIT;
-            case KeyEvent.KEYCODE_9: return Action.DIGIT;
-            default: return Action.OTHER;
-        }
-    }
-
-    public static int digit(KeyEvent e) {
-        if (e == null) return -1;
-        int k = e.getKeyCode();
-        if (k >= KeyEvent.KEYCODE_0 && k <= KeyEvent.KEYCODE_9) return k - KeyEvent.KEYCODE_0;
-        return -1;
-    }
+import android.content.Context;import android.view.KeyEvent;import android.util.Log;import com.example.contacts.util.AppPrefs;
+public final class KeyMapper{
+ private KeyMapper(){}
+ public enum Action{UP,DOWN,LEFT,RIGHT,SELECT,CALL,BACK,MENU,SOFT_LEFT,SOFT_RIGHT,DIGIT,STAR,POUND,PAGE_UP,PAGE_DOWN,DELETE,OTHER}
+ public static class Result{public Action action;public int digit;public Result(Action a,int d){action=a;digit=d;}}
+ public static Result map(Context c,KeyEvent e){if(e==null)return new Result(Action.OTHER,-1);int k=e.getKeyCode();if(com.example.contacts.BuildConfig.DEBUG)Log.d("KeyContacts","key="+k+" action="+e.getAction()+" repeat="+e.getRepeatCount());boolean compat=AppPrefs.bool(c,"soft_compat",false);switch(k){case KeyEvent.KEYCODE_DPAD_UP:return new Result(Action.UP,-1);case KeyEvent.KEYCODE_DPAD_DOWN:return new Result(Action.DOWN,-1);case KeyEvent.KEYCODE_DPAD_LEFT:return new Result(Action.LEFT,-1);case KeyEvent.KEYCODE_DPAD_RIGHT:return new Result(Action.RIGHT,-1);case KeyEvent.KEYCODE_DPAD_CENTER:case KeyEvent.KEYCODE_ENTER:return new Result(Action.SELECT,-1);case KeyEvent.KEYCODE_CALL:return new Result(Action.CALL,-1);case KeyEvent.KEYCODE_ENDCALL:case KeyEvent.KEYCODE_BACK:return new Result(Action.BACK,-1);case KeyEvent.KEYCODE_MENU:return new Result(compat?Action.SOFT_LEFT:Action.MENU,-1);case KeyEvent.KEYCODE_SOFT_LEFT:return new Result(Action.SOFT_LEFT,-1);case KeyEvent.KEYCODE_SOFT_RIGHT:return new Result(compat?Action.BACK:Action.SOFT_RIGHT,-1);case KeyEvent.KEYCODE_STAR:return new Result(Action.STAR,-1);case KeyEvent.KEYCODE_POUND:return new Result(Action.POUND,-1);case KeyEvent.KEYCODE_DEL:return new Result(Action.DELETE,-1);case KeyEvent.KEYCODE_VOLUME_UP:return new Result(Action.PAGE_UP,-1);case KeyEvent.KEYCODE_VOLUME_DOWN:return new Result(Action.PAGE_DOWN,-1);default:if(k>=KeyEvent.KEYCODE_0&&k<=KeyEvent.KEYCODE_9)return new Result(Action.DIGIT,k-KeyEvent.KEYCODE_0);}return new Result(Action.OTHER,-1);}
 }

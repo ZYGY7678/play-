@@ -1,7 +1,5 @@
 package com.example.contacts.ui;
-
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
@@ -9,31 +7,25 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import com.example.contacts.data.ContactModel;
-import com.example.contacts.util.ColorUtil;
+import com.example.contacts.util.Palette;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.widget.FocusableRow;
-
 import java.util.List;
 
 public class FavoriteAdapter extends BaseAdapter {
-    private final Context context; private List<ContactModel> data;
-    public FavoriteAdapter(Context c,List<ContactModel>d){context=c;data=d;}
-    public void setData(List<ContactModel>d){data=d;notifyDataSetChanged();}
-    public int getCount(){return data==null?0:data.size();}
-    public ContactModel getItem(int p){return data.get(p);}
-    public long getItemId(int p){return data.get(p).id;}
-    public View getView(int p,View v,ViewGroup parent){
-        FocusableRow row=(v instanceof FocusableRow)?(FocusableRow)v:new FocusableRow(context);
-        if(row.getChildCount()==0){
-            TextView a=new TextView(context);a.setTag("avatar");
-            TextView n=new TextView(context);n.setTag("name");n.setTextSize(17);n.setTextColor(ColorUtil.TEXT);n.setTypeface(Typeface.DEFAULT,Typeface.BOLD);n.setGravity(Gravity.CENTER);
-            row.setGravity(Gravity.CENTER);row.setOrientation(LinearLayout.VERTICAL);row.addView(a,new LinearLayout.LayoutParams(-1,58));row.addView(n,new LinearLayout.LayoutParams(-1,34));
-        }
-        TextView a=(TextView)row.findViewWithTag("avatar"),n=(TextView)row.findViewWithTag("name");
-        ContactModel c=data.get(p);String name=c.name.length()==0?"ללא שם":c.name;
-        a.setText(name.substring(0,1));a.setTextSize(25);a.setGravity(Gravity.CENTER);a.setTextColor(Color.WHITE);a.setBackgroundColor(ColorUtil.stableColor(name));
-        n.setText(name+"\n"+PhoneFormatter.format(c.number));return row;
-    }
+ private Context c; private List<ContactModel> d;
+ public FavoriteAdapter(Context c,List<ContactModel>d){this.c=c;this.d=d;}
+ public void setData(List<ContactModel>d){this.d=d;notifyDataSetChanged();}
+ public int getCount(){return d==null?0:d.size();}
+ public ContactModel getItem(int p){return d.get(p);}
+ public long getItemId(int p){return d.get(p).id;}
+ public View getView(int p,View v,ViewGroup parent){
+  FocusableRow r=v instanceof FocusableRow?(FocusableRow)v:new FocusableRow(c);r.setOrientation(LinearLayout.VERTICAL);r.setGravity(Gravity.CENTER);
+  if(r.getChildCount()==0){TextView a=new TextView(c),n=new TextView(c);a.setTag("avatar");n.setTag("name");r.addView(a,new LinearLayout.LayoutParams(-1,72));r.addView(n,new LinearLayout.LayoutParams(-1,50));}
+  TextView a=(TextView)r.findViewWithTag("avatar"),n=(TextView)r.findViewWithTag("name");ContactModel m=d.get(p);String name=m.name.length()>0?m.name:"ללא שם";
+  a.setText(name.substring(0,1));a.setTextSize(28);a.setGravity(Gravity.CENTER);a.setTextColor(Palette.text(c));a.setBackgroundColor(0xff3b6178);
+  n.setText((p<8?(p+2)+"  ":"")+name+"\n"+PhoneFormatter.ltr(PhoneFormatter.format(m.primary())));n.setTextSize(16*Palette.scale(c));n.setTextColor(Palette.text(c));n.setGravity(Gravity.CENTER);n.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+  return r;
+ }
 }
