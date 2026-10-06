@@ -21,6 +21,7 @@ import android.graphics.Typeface;
 import android.widget.Toast;
 
 import com.example.contacts.util.Palette;
+import com.example.contacts.util.AppPrefs;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.widget.FocusableRow;
 
@@ -42,10 +43,10 @@ public class ContactDetailActivity extends BaseKeyActivity {
  private void call(String n){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(n))));}catch(Exception e){Toast.makeText(this,"חיוג לא זמין",Toast.LENGTH_SHORT).show();}}
  private void sms(String n){try{startActivity(new Intent(Intent.ACTION_SENDTO,Uri.parse("smsto:"+Uri.encode(n))));}catch(Exception e){Toast.makeText(this,"SMS לא זמין",Toast.LENGTH_SHORT).show();}}
  private void copy(String n){((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("phone",n));Toast.makeText(this,"הועתק",Toast.LENGTH_SHORT).show();}
- private void options(){DialogUtil.actions(this,contactName,new String[]{"חייג","שלח הודעה","ערוך","מחק","מועדף","שתף"},new DialogUtil.Choice(){public void onChoice(int w){Field f=current();if(w==0&&f!=null&&f.kind==1)call(f.value);else if(w==1&&f!=null&&f.kind==1)sms(f.value);else if(w==2)edit();else if(w==3)del();else if(w==4)fav();else share();}});}
- private void edit(){startActivity(new Intent(this,EditContactActivity.class).putExtra("contactId",id).putExtra("name",contactName).putExtra("number",firstPhone()));}
+ private void options(){final boolean locked=AppPrefs.bool(this,"kids_lock",false);final String[] a=locked?new String[]{"חייג","שלח הודעה","מועדף","שתף"}:new String[]{"חייג","שלח הודעה","ערוך","מחק","מועדף","שתף"};DialogUtil.actions(this,contactName,a,new DialogUtil.Choice(){public void onChoice(int w){Field f=current();if(w==0&&f!=null&&f.kind==1)call(f.value);else if(w==1&&f!=null&&f.kind==1)sms(f.value);else if(locked&&w==2)fav();else if(locked&&w==3)share();else if(!locked&&w==2)edit();else if(!locked&&w==3)del();else if(!locked&&w==4)fav();else if(!locked&&w==5)share();}});}
+ private void edit(){if(AppPrefs.bool(this,"kids_lock",false)){Toast.makeText(this,"מצב ילדים פעיל",Toast.LENGTH_SHORT).show();return;}startActivity(new Intent(this,EditContactActivity.class).putExtra("contactId",id).putExtra("name",contactName).putExtra("number",firstPhone()));}
  private String firstPhone(){for(Field f:fields)if(f.kind==1)return f.value;return "";}
- private void del(){getContentResolver().delete(ContactsContract.Contacts.CONTENT_URI,ContactsContract.Contacts._ID+"=?",new String[]{String.valueOf(id)});finish();}
+ private void del(){if(AppPrefs.bool(this,"kids_lock",false)){Toast.makeText(this,"מצב ילדים פעיל",Toast.LENGTH_SHORT).show();return;}getContentResolver().delete(ContactsContract.Contacts.CONTENT_URI,ContactsContract.Contacts._ID+"=?",new String[]{String.valueOf(id)});finish();}
  private void fav(){ContentValues v=new ContentValues();v.put(ContactsContract.Contacts.STARRED,1);getContentResolver().update(ContactsContract.Contacts.CONTENT_URI,v,ContactsContract.Contacts._ID+"=?",new String[]{String.valueOf(id)});Toast.makeText(this,"נוסף למועדפים",Toast.LENGTH_SHORT).show();}
  private void share(){Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,contactName+"\n"+firstPhone());startActivity(Intent.createChooser(i,"שתף איש קשר"));}
  @Override protected void onKeyAction(com.example.contacts.keys.KeyMapper.Result r,boolean down){if(down)return;switch(r.action){case UP:selected=Math.max(0,selected-1);break;case DOWN:selected=Math.min(fields.size()-1,selected+1);break;case CALL:callCurrent();break;case SELECT:callCurrent();break;case RIGHT:{Field f=current();if(f!=null&&f.kind==1)sms(f.value);break;}case LEFT:{Field f=current();if(f!=null&&f.kind==1)copy(f.value);break;}case SOFT_LEFT:edit();break;case SOFT_RIGHT:options();break;case MENU:options();break;case BACK:finish();break;default:return;}list.setSelectionFromTop(selected,Math.max(0,list.getHeight()/2-36));list.invalidateViews();}
