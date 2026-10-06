@@ -41,8 +41,8 @@
         <activity android:name=".call.InCallActivity" android:screenOrientation="portrait"
             android:launchMode="singleInstance" android:excludeFromRecents="true"
             android:theme="@style/InCallTheme" android:taskAffinity="" android:exported="false"/>
-        <receiver android:name=".call.PhoneStateReceiver" android:priority="999" android:exported="true">
-            <intent-filter>
+        <receiver android:name=".call.PhoneStateReceiver" android:exported="true">
+            <intent-filter android:priority="999">
                 <action android:name="android.intent.action.PHONE_STATE"/>
                 <action android:name="android.intent.action.NEW_OUTGOING_CALL"/>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>

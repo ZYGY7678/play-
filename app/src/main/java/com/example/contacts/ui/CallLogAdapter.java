@@ -46,7 +46,7 @@ public class CallLogAdapter extends BaseAdapter {
         return row;
     }
     static class Holder{
-        TextView icon,name,num,time;
-        Holder(Context c){icon=new TextView(c); LinearLayout box=new LinearLayout(c);box.setOrientation(LinearLayout.VERTICAL);name=new TextView(c);num=new TextView(c);box.addView(name);box.addView(num);time=new TextView(c);}
+        TextView icon,name,num,time; LinearLayout text;
+        Holder(Context c){icon=new TextView(c); text=new LinearLayout(c); text.setOrientation(LinearLayout.VERTICAL); name=new TextView(c); num=new TextView(c); text.addView(name); text.addView(num); time=new TextView(c);}
     }
 }
