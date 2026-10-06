@@ -1,1 +1,1 @@
-# RoadLegends intentionally keeps dependencies at zero.
+# API 19 key-phone application: no custom shrinking rules required.

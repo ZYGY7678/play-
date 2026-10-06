@@ -1,47 +1,27 @@
-plugins {
-    id 'com.android.application'
-}
+plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.zygy.roadlegends'
+    namespace 'com.example.contacts'
     compileSdk 35
 
     defaultConfig {
-        // New install-safe application id so it does not conflict with older
-        // builds signed with a different temporary CI key.
-        applicationId 'com.zygy.roadlegends.fixed'
-        minSdk 28
-        targetSdk 35
-        versionCode 5
-        versionName '2.1'
-    }
-
-    signingConfigs {
-        release {
-            def storeFilePath = System.getenv('ROADLEGENDS_STORE_FILE')
-            def storePasswordValue = System.getenv('ROADLEGENDS_STORE_PASSWORD')
-            def keyAliasValue = System.getenv('ROADLEGENDS_KEY_ALIAS')
-            def keyPasswordValue = System.getenv('ROADLEGENDS_KEY_PASSWORD')
-            if (storeFilePath && storePasswordValue && keyAliasValue && keyPasswordValue) {
-                storeFile file(storeFilePath)
-                storePassword storePasswordValue
-                keyAlias keyAliasValue
-                keyPassword keyPasswordValue
-            }
-        }
+        applicationId 'com.example.contacts'
+        minSdk 19
+        targetSdk 19
+        versionCode 1
+        versionName '1.0'
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_7
+        targetCompatibility JavaVersion.VERSION_7
     }
 }
 

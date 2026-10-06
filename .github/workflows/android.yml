@@ -1,16 +1,12 @@
-name: Build Road Legends APK
+name: Build Key Contacts APK
 
 concurrency:
-  group: roadlegends-android-build
+  group: keycontacts-android-build
   cancel-in-progress: true
+
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  pull_request_target:
-    branches: [ "main" ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,38 +21,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-
-      - name: Generate temporary release signing key
+      - name: Generate CI signing key
         run: |
           set -euo pipefail
           PASS="$(openssl rand -hex 32)"
-          STORE="$RUNNER_TEMP/roadlegends-release.keystore"
-          keytool -genkeypair -v \
-            -keystore "$STORE" \
-            -storepass "$PASS" \
-            -keypass "$PASS" \
-            -alias roadlegends \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Road Legends, OU=Build, O=Road Legends, L=Local, ST=Local, C=US"
-          echo "ROADLEGENDS_STORE_FILE=$STORE" >> "$GITHUB_ENV"
-          echo "ROADLEGENDS_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
-          echo "ROADLEGENDS_KEY_ALIAS=roadlegends" >> "$GITHUB_ENV"
-          echo "ROADLEGENDS_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
-
-      - name: Build signed APK
+          STORE="$RUNNER_TEMP/keycontacts-release.keystore"
+          keytool -genkeypair -v -keystore "$STORE" -storepass "$PASS" -keypass "$PASS" -alias keycontacts -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Key Contacts, OU=Build, O=Key Contacts, L=Local, ST=Local, C=US"
+          echo "KEYCONTACTS_STORE_FILE=$STORE" >> "$GITHUB_ENV"
+          echo "KEYCONTACTS_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "KEYCONTACTS_KEY_ALIAS=keycontacts" >> "$GITHUB_ENV"
+          echo "KEYCONTACTS_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+      - name: Build release APK
         run: gradle :app:assembleRelease --stacktrace
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: road-legends-android9-fixed
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-
-      - name: Verify APK signature and package
+      - name: Verify APK
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify -verbose app/build/outputs/apk/release/app-release.apk
           ls -lh app/build/outputs/apk/release/app-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: key-contacts-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

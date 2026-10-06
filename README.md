@@ -1,18 +1,7 @@
-# Road Legends
+# Key Contacts
 
-גרסת מובייל תלת־ממדית ל־Android 9+ עם עולם עירוני, נמל, שטח ושדה תעופה.
+Android 4.4.4 / API 19 physical-key contacts and dialer.
 
-## מערכות במשחק
-- נהיגה, יציאה/כניסה מרכב ושלוש זוויות מצלמה.
-- עיר תלת־ממדית, כבישים, בניינים, צמחייה, נמל, ים ושדה תעופה.
-- מוסך ורכישה של כלי תחבורה במחירים מדורגים.
-- ממשק עברי מלא עם יתרת כסף, מהירות, משימה ורמת קושי.
-- יריבים מדורגים ממתחיל עד אגדי, עם תנועת התקרבות ונקודות כוח.
-- תגמולים על עימותים גדלים לפי הקושי והסוג.
-- תגמולי אבני דרך למשימות: 1,500 / 2,600 / 4,200 / 6,800 ₪.
-- איכות גרפיקה: ביצועים / גבוהה / אולטרה.
-- התאמת ביצועים למכשירים שונים ושמירה על Android 9+.
+The app is built without third-party runtime libraries and uses the Android framework only. Target SDK is 19 so runtime permissions are not required on the target device.
 
-הפרויקט ממשיך להיבנות בהדרגה לכיוון עולם פתוח עשיר ומלוטש.
-
-Build verification: 2026-10-05 control and performance pass.
+Main capabilities include contacts, T9 search, recent calls, favorites, dialer/redial, contact edit/add/delete, settings, physical-key navigation, and an API-19 compatible in-call overlay/activity path.
