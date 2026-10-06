@@ -265,7 +265,8 @@ public class InCallActivity extends BaseKeyActivity {
         bottomCenter.setText(action==0?"השתק":action==1?"רמקול":"ניתוק");
     }
     private void executeAction(){if(incoming&&!ended&&CallStateHolder.startTime==0){answer();return;}if(action==0)toggleMute();else if(action==1)toggleSpeaker();else endCall();}
-    private void muteRinger(){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.setRingerMode(AudioManager.RINGER_MODE_SILENT);status.setText("צלצול מושתק");}\n    private void volume(int d){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL,d>0?AudioManager.ADJUST_RAISE:AudioManager.ADJUST_LOWER,0);}
+    private void muteRinger(){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.setRingerMode(AudioManager.RINGER_MODE_SILENT);status.setText("צלצול מושתק");}
+    private void volume(int d){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL,d>0?AudioManager.ADJUST_RAISE:AudioManager.ADJUST_LOWER,0);}
     private void startDialAgain(){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(numberValue))));}catch(Exception ignored){}}
     @Override protected void onPause(){super.onPause();if(CallStateHolder.active&&!isFinishing())handler.postDelayed(new Runnable(){public void run(){try{startActivity(new Intent(InCallActivity.this,InCallActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));}catch(Exception ignored){}}},300);}
     @Override protected void onDestroy(){handler.removeCallbacks(clock);super.onDestroy();}
