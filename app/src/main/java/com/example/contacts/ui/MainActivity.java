@@ -39,6 +39,7 @@ import com.example.contacts.util.Palette;
 import com.example.contacts.util.Ui;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.widget.FocusableRow;
+import com.example.contacts.widget.IconView;
 
 import java.util.ArrayList;
 import java.util.Collections;
