@@ -1,110 +1,89 @@
 package com.example.contacts.ui;
 
-import android.app.Activity;
-import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.view.KeyEvent;
+import android.view.Gravity;
 import android.view.View;
-import android.view.Window;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.BaseAdapter;
-import android.view.ViewGroup;
 import android.widget.TextView;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.example.contacts.R;
 import com.example.contacts.data.ContactModel;
 import com.example.contacts.data.ContactsRepository;
-import com.example.contacts.util.ColorUtil;
-import com.example.contacts.util.Ui;
+import com.example.contacts.keys.KeyMapper;
+import com.example.contacts.util.AppPrefs;
+import com.example.contacts.util.Palette;
 import com.example.contacts.widget.FocusableRow;
 
 import java.util.ArrayList;
-import java.util.List;
 
-public class SettingsActivity extends Activity {
-    private final ArrayList<String> labels=new ArrayList<String>();
-    private ListView list;
-    private SharedPreferences p;
-    private int selected=0;
-
-    @Override protected void onCreate(Bundle b){
-        super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);
-        p=getSharedPreferences("keycontacts",0);buildLabels();build();
-    }
-
-    private void buildLabels(){
-        labels.clear();
-        labels.add("מיפוי מקשי תפריט: "+(p.getBoolean("softCompat",false)?"MENU/BACK":"SOFT LEFT/RIGHT"));
-        labels.add("שפת T9: "+(p.getBoolean("t9_hebrew",true)?"עברית":"English"));
-        labels.add("מיון: "+(p.getBoolean("sort_family",false)?"משפחה":"שם פרטי"));
-        labels.add("תצוגת שם: "+(p.getBoolean("family_first",false)?"משפחה, פרטי":"פרטי, משפחה"));
-        labels.add("גודל גופן: "+p.getString("font_size","רגיל"));
-        labels.add("ערכת צבעים: "+p.getString("theme","כהה"));
-        labels.add("רטט: "+(p.getBoolean("vibrate",true)?"פעיל":"כבוי"));
-        labels.add("צלילי ניווט: "+(p.getBoolean("sounds",true)?"פעיל":"כבוי"));
-        labels.add("גלישה מעגלית: "+(p.getBoolean("circular",false)?"פעילה":"כבויה"));
-        for(int d=2;d<=9;d++)labels.add("חיוג מהיר "+d+": "+speed(d));
-    }
-
-    private String speed(int d){
-        String n=p.getString("speed_"+d,"");return n.length()==0?"לא הוגדר":n;
-    }
-
-    private void build(){
-        android.widget.LinearLayout root=new android.widget.LinearLayout(this);root.setOrientation(android.widget.LinearLayout.VERTICAL);root.setBackgroundColor(ColorUtil.BG);
-        root.addView(Ui.bar(this,"הגדרות",22),new android.widget.LinearLayout.LayoutParams(-1,54));
-        list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setAdapter(new BaseAdapter(){
-            public int getCount(){return labels.size();}
-            public Object getItem(int pos){return labels.get(pos);}
-            public long getItemId(int pos){return pos;}
-            public View getView(int pos,View v,ViewGroup par){
-                FocusableRow r=new FocusableRow(SettingsActivity.this);TextView t=Ui.text(SettingsActivity.this,(pos+1)+"  "+labels.get(pos),18,ColorUtil.TEXT);r.addView(t,new android.widget.LinearLayout.LayoutParams(-1,72));return r;
-            }
-        });
-        root.addView(list,new android.widget.LinearLayout.LayoutParams(-1,0,1f));setContentView(root);list.requestFocus();list.setSelection(0);
-    }
-
-    private void cycle(int pos){
-        android.content.SharedPreferences.Editor e=p.edit();
-        if(pos==0)e.putBoolean("softCompat",!p.getBoolean("softCompat",false));
-        else if(pos==1)e.putBoolean("t9_hebrew",!p.getBoolean("t9_hebrew",true));
-        else if(pos==2)e.putBoolean("sort_family",!p.getBoolean("sort_family",false));
-        else if(pos==3)e.putBoolean("family_first",!p.getBoolean("family_first",false));
-        else if(pos==4)e.putString("font_size",next(p.getString("font_size","רגיל"),new String[]{"רגיל","גדול","ענק"}));
-        else if(pos==5)e.putString("theme",next(p.getString("theme","כהה"),new String[]{"כהה","בהירה","ניגודיות גבוהה"}));
-        else if(pos==6)e.putBoolean("vibrate",!p.getBoolean("vibrate",true));
-        else if(pos==7)e.putBoolean("sounds",!p.getBoolean("sounds",true));
-        else if(pos==8)e.putBoolean("circular",!p.getBoolean("circular",false));
-        else if(pos>=9){final int digit=pos-7;chooseSpeedDial(digit);return;}
-        e.apply();buildLabels();list.setAdapter(list.getAdapter());list.invalidateViews();Toast.makeText(this,"עודכן",Toast.LENGTH_SHORT).show();
-    }
-
-    private String next(String cur,String[] a){for(int i=0;i<a.length;i++)if(a[i].equals(cur))return a[(i+1)%a.length];return a[0];}
-
-    private void chooseSpeedDial(final int digit){
-        final ArrayList<ContactModel> cs=new ArrayList<ContactModel>();
-        android.database.Cursor c=null;
-        try{
-            c=ContactsRepository.createPhoneCursor(this);
-            if(c!=null){long last=-1;while(c.moveToNext()&&cs.size()<9){long id=c.getLong(1);if(id==last)continue;last=id;cs.add(new ContactModel(id,-1,c.getString(2),c.getString(3),"",c.getString(5),c.getInt(6)!=0));}}
-        }finally{if(c!=null)c.close();}
-        if(cs.size()==0){Toast.makeText(this,"אין אנשי קשר",Toast.LENGTH_SHORT).show();return;}
-        String[] names=new String[cs.size()];for(int i=0;i<cs.size();i++)names[i]=cs.get(i).name+"  "+cs.get(i).number;
-        DialogUtil.actions(this,"חיוג מהיר "+digit,names,new DialogUtil.Choice(){public void onChoice(int w){p.edit().putString("speed_"+digit,cs.get(w).number).apply();buildLabels();list.invalidateViews();Toast.makeText(SettingsActivity.this,"הוגדר",Toast.LENGTH_SHORT).show();}});
-    }
-
-    @Override public boolean dispatchKeyEvent(KeyEvent e){
-        int k=e.getKeyCode();if(e.getAction()==KeyEvent.ACTION_DOWN){e.startTracking();return relevant(k);}
-        if(e.getAction()==KeyEvent.ACTION_UP&&relevant(k)){
-            if(k==KeyEvent.KEYCODE_DPAD_UP)selected=Math.max(0,selected-1);
-            else if(k==KeyEvent.KEYCODE_DPAD_DOWN)selected=Math.min(labels.size()-1,selected+1);
-            else if(k==KeyEvent.KEYCODE_DPAD_CENTER||k==KeyEvent.KEYCODE_ENTER)cycle(selected);
-            else if(k==KeyEvent.KEYCODE_BACK||k==KeyEvent.KEYCODE_ENDCALL)finish();
-            if(list!=null){list.setSelection(selected);list.invalidateViews();}return true;
-        }
-        return relevant(k);
-    }
-    private boolean relevant(int k){return k==KeyEvent.KEYCODE_DPAD_UP||k==KeyEvent.KEYCODE_DPAD_DOWN||k==KeyEvent.KEYCODE_DPAD_CENTER||k==KeyEvent.KEYCODE_ENTER||k==KeyEvent.KEYCODE_BACK||k==KeyEvent.KEYCODE_ENDCALL;}
+public class SettingsActivity extends BaseKeyActivity {
+ private final ArrayList<String> labels=new ArrayList<String>();private ListView list;private int selected=0;
+ @Override protected void onCreate(Bundle b){super.onCreate(b);buildLabels();build();}
+ private void buildLabels(){
+  labels.clear();
+  labels.add("מקשי תפריט: "+(AppPrefs.bool(this,"soft_compat",false)?"MENU/BACK":"SOFT LEFT/RIGHT"));
+  labels.add("T9: "+(AppPrefs.bool(this,"t9_hebrew",true)?"עברית":"English"));
+  labels.add("מיון: "+(AppPrefs.bool(this,"sort_family",false)?"משפחה":"שם"));
+  labels.add("תצוגת שם: "+(AppPrefs.bool(this,"family_first",false)?"משפחה, פרטי":"פרטי, משפחה"));
+  labels.add("גודל גופן: "+AppPrefs.str(this,"font_size","רגיל"));
+  labels.add("ערכת צבעים: "+AppPrefs.str(this,"theme","כהה"));
+  labels.add("רטט: "+(AppPrefs.bool(this,"vibrate",true)?"פעיל":"כבוי"));
+  labels.add("צלילי ניווט: "+(AppPrefs.bool(this,"sounds",true)?"פעיל":"כבוי"));
+  labels.add("גלישה מעגלית: "+(AppPrefs.bool(this,"circular",false)?"פעילה":"כבויה"));
+  labels.add("Volume = עמוד: "+(AppPrefs.bool(this,"volume_page",true)?"כן":"לא"));
+  labels.add("אנימציות: "+(AppPrefs.bool(this,"animations",true)?"פעילות":"כבויות"));
+  labels.add("מצב ילדים / נעילה: "+(AppPrefs.bool(this,"kids_lock",false)?"מופעל":"כבוי"));
+  for(int d=2;d<=9;d++)labels.add("חיוג מהיר "+d+": "+AppPrefs.str(this,"speed_"+d,"לא הוגדר"));
+  labels.add("גיבוי אנשי קשר ל-vCard");
+  labels.add("ייבוא vCard");
+  labels.add("איחוד כפילויות לפי מספר");
+ }
+ private void build(){
+  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Palette.bg(this));
+  TextView title=txt("הגדרות",23,Palette.text(this));title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,56));
+  list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(true);
+  list.setAdapter(new BaseAdapter(){public int getCount(){return labels.size();}public Object getItem(int p){return labels.get(p);}public long getItemId(int p){return p;}
+   public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);TextView t=txt((p+1)+"   "+labels.get(p),17,Palette.text(SettingsActivity.this));t.setPadding(12,0,12,0);r.addView(t,new LinearLayout.LayoutParams(-1,72));return r;}});
+  root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);list.requestFocus();list.setSelection(0);
+ }
+ private TextView txt(String s,float sp,int col){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(col);t.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);return t;}
+ private void toggle(int p){
+  switch(p){
+   case 0:AppPrefs.put(this,"soft_compat",!AppPrefs.bool(this,"soft_compat",false));break;
+   case 1:AppPrefs.put(this,"t9_hebrew",!AppPrefs.bool(this,"t9_hebrew",true));break;
+   case 2:AppPrefs.put(this,"sort_family",!AppPrefs.bool(this,"sort_family",false));break;
+   case 3:AppPrefs.put(this,"family_first",!AppPrefs.bool(this,"family_first",false));break;
+   case 4:AppPrefs.put(this,"font_size",next(AppPrefs.str(this,"font_size","רגיל"),new String[]{"רגיל","גדול","ענק"}));break;
+   case 5:AppPrefs.put(this,"theme",next(AppPrefs.str(this,"theme","כהה"),new String[]{"כהה","בהירה","ניגודיות גבוהה"}));break;
+   case 6:AppPrefs.put(this,"vibrate",!AppPrefs.bool(this,"vibrate",true));break;
+   case 7:AppPrefs.put(this,"sounds",!AppPrefs.bool(this,"sounds",true));break;
+   case 8:AppPrefs.put(this,"circular",!AppPrefs.bool(this,"circular",false));break;
+   case 9:AppPrefs.put(this,"volume_page",!AppPrefs.bool(this,"volume_page",true));break;
+   case 10:AppPrefs.put(this,"animations",!AppPrefs.bool(this,"animations",true));break;
+   case 11:AppPrefs.put(this,"kids_lock",!AppPrefs.bool(this,"kids_lock",false));break;
+   default:
+    if(p>=12&&p<=19){speedDial(p-10);return;}
+    if(p==20)Toast.makeText(this,"גיבוי vCard: נבנה בהמשך לפי אחסון ה-ROM",Toast.LENGTH_LONG).show();
+    else if(p==21)Toast.makeText(this,"ייבוא vCard: בחר קובץ דרך מנהל קבצים",Toast.LENGTH_LONG).show();
+    else if(p==22)Toast.makeText(this,"איחוד כפילויות לפי מספר: בחירת כפילויות תופיע בגרסה המלאה",Toast.LENGTH_LONG).show();
+  }
+  buildLabels();list.setAdapter(list.getAdapter());list.setSelection(selected);list.invalidateViews();
+ }
+ private String next(String s,String[]a){for(int i=0;i<a.length;i++)if(a[i].equals(s))return a[(i+1)%a.length];return a[0];}
+ private void speedDial(final int d){
+  CursorHolder.load(this,new CursorHolder.Done(){public void done(final ArrayList<ContactModel> cs){
+   if(cs.size()==0){Toast.makeText(SettingsActivity.this,"אין אנשי קשר",Toast.LENGTH_SHORT).show();return;}
+   String[]n=new String[cs.size()];for(int i=0;i<n.length;i++)n[i]=cs.get(i).name+"  "+cs.get(i).primary();
+   DialogUtil.actions(SettingsActivity.this,"חיוג מהיר "+d,n,new DialogUtil.Choice(){public void onChoice(int w){AppPrefs.put(SettingsActivity.this,"speed_"+d,cs.get(w).primary());buildLabels();list.invalidateViews();}});
+  }});
+ }
+ private static class CursorHolder{
+  interface Done{void done(ArrayList<ContactModel> c);}
+  static void load(final android.content.Context c,final Done done){new android.os.AsyncTask<Void,Void,ArrayList<ContactModel>>(){protected ArrayList<ContactModel>doInBackground(Void...v){ArrayList<ContactModel>o=new ArrayList<ContactModel>();android.database.Cursor x=null;try{x=ContactsRepository.phones(c);long last=-1;if(x!=null)while(x.moveToNext()&&o.size()<30){long id=x.getLong(1);if(id==last)continue;last=id;ContactModel m=new ContactModel(id,x.getString(2));m.phones.add(new ContactModel.PhoneNumber(x.getString(3),ContactsRepository.phoneType(x.getInt(4))));o.add(m);}}finally{if(x!=null)x.close();}return o;}protected void onPostExecute(ArrayList<ContactModel>x){done.done(x);}}.executeOnExecutor(android.os.AsyncTask.THREAD_POOL_EXECUTOR);}
+ }
+ @Override protected void onKeyAction(KeyMapper.Result r,boolean down){if(down)return;switch(r.action){case UP:selected=Math.max(0,selected-1);break;case DOWN:selected=Math.min(labels.size()-1,selected+1);break;case SELECT:toggle(selected);break;case BACK:finish();break;default:return;}if(list!=null){list.setSelection(selected);list.invalidateViews();}}
 }
