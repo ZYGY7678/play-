@@ -48,7 +48,7 @@ import java.util.Locale;
 public class MainActivity extends BaseKeyActivity implements LoaderManager.LoaderCallbacks<Cursor> {
  private static final int DIAL=0,CONTACTS=1,RECENTS=2,FAVS=3;
  private int tab=DIAL;private boolean contactSearch=false;private String query="";private String dial="";private String lastDialed="";
- private LinearLayout root,body,tabRow;private TextView title,softLeft,center,softRight,searchBar,emptyView;private ListView list;private GridView grid;private ContactAdapter contactsAdapter;private CallLogAdapter recentAdapter;private FavoriteAdapter favAdapter;
+ private LinearLayout root,body,tabRow;private TextView title,softLeft,center,softRight,searchBar,emptyView,dots;private ListView list;private GridView grid;private ContactAdapter contactsAdapter;private CallLogAdapter recentAdapter;private FavoriteAdapter favAdapter;
  private final ArrayList<ContactModel> contacts=new ArrayList<ContactModel>();private final ArrayList<ContactModel> filtered=new ArrayList<ContactModel>();private final ArrayList<ContactAdapter.Row> contactRows=new ArrayList<ContactAdapter.Row>();private final ArrayList<CallLogRepository.Entry> recents=new ArrayList<CallLogRepository.Entry>();
  private int selected=0;private int restoredTab=0,restoredSelection=0;private boolean restoring=false;private final Handler h=new Handler();private ContentObserver observer;private android.os.Vibrator vibrator;
 
@@ -71,7 +71,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
   tabRow=new LinearLayout(this);tabRow.setGravity(Gravity.CENTER);
   final String[] names={"חיוג","אנשי קשר","אחרונות","מועדפים"};
   for(int i=0;i<4;i++){final int x=i;TextView t=topText(names[i]);t.setTextSize(14);t.setContentDescription(names[i]);t.setOnClickListener(new View.OnClickListener(){public void onClick(View v){switchTab(x);}});tabRow.addView(t,new LinearLayout.LayoutParams(0,28,1));}
-  outer.addView(tabRow,new LinearLayout.LayoutParams(-1,28));return outer;
+  outer.addView(tabRow,new LinearLayout.LayoutParams(-1,28));dots=topText("●  ○  ○  ○");dots.setFocusable(false);dots.setClickable(false);dots.setTextSize(9);outer.addView(dots,new LinearLayout.LayoutParams(-1,14));return outer;
  }
  private TextView topText(String s){TextView t=new TextView(this);t.setText(s);t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER);t.setFocusable(true);t.setFocusableInTouchMode(false);t.setBackgroundResource(com.example.contacts.R.drawable.row_selector);return t;}
  private View buildBottom(){
@@ -83,7 +83,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
   tab=t;selected=0;contactSearch=false;query="";body.removeAllViews();title.setText(new String[]{"חיוג","אנשי קשר","אחרונות","מועדפים"}[tab]);
   if(tab==DIAL)buildDialer();else if(tab==CONTACTS)buildContacts();else if(tab==RECENTS)buildRecents();else buildFavs();
   if(AppPrefs.bool(this,"animations",true)){body.setAlpha(0f);body.setTranslationX(t>0?18f:-18f);body.animate().alpha(1f).translationX(0f).setDuration(180).start();}else{body.setAlpha(1f);body.setTranslationX(0f);}
-  for(int i=0;i<4;i++){TextView v=(TextView)tabRow.getChildAt(i);v.setTextColor(i==tab?Palette.accent(this):Palette.secondary(this));}
+  for(int i=0;i<4;i++){TextView v=(TextView)tabRow.getChildAt(i);v.setTextColor(i==tab?Palette.accent(this):Palette.secondary(this));}if(dots!=null){StringBuilder marker=new StringBuilder();for(int i=0;i<4;i++){if(i>0)marker.append("  ");marker.append(i==tab?"●":"○");}dots.setText(marker.toString());dots.setTextColor(Palette.accent(this));}
  }
  private void buildDialer(){
   FrameLayout f=new FrameLayout(this);
