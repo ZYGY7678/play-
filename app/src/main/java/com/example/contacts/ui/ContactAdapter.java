@@ -51,7 +51,7 @@ public class ContactAdapter extends BaseAdapter {
    r.addView(h.action,new LinearLayout.LayoutParams(42,54));
   }
   ContactModel m=x.contact;
-  String n=m.name.length()>0?m.name:"ללא שם";
+  String n=m.name.length()>0?m.name:"ללא שם"; if(com.example.contacts.util.AppPrefs.bool(c,"family_first",false)){String[] parts=n.trim().split("\\s+");if(parts.length>1)n=parts[parts.length-1]+" "+n.substring(0,n.lastIndexOf(parts[parts.length-1])).trim();}
   h.avatar.setTag(m.photoUri);h.avatar.setContentDescription("תמונה של "+n);
   h.avatar.setImageBitmap(null);h.avatar.setBackground(PhotoCache.circle(0xff3b6178));
   if(m.photoUri!=null&&m.photoUri.length()>0)PhotoCache.loadInto(c,m.photoUri,h.avatar,n);
