@@ -34,15 +34,35 @@ jobs:
           echo "KEYCONTACTS_KEY_ALIAS=keycontacts" >> "$GITHUB_ENV"
           echo "KEYCONTACTS_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
       - name: Build release APK
-        run: gradle :app:assembleRelease --stacktrace
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          gradle :app:assembleRelease --stacktrace 2>&1 | tee build.log
+          code=${PIPESTATUS[0]}
+          echo "GRADLE_EXIT_CODE=$code" >> build.log
+          exit $code
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: key-contacts-build-log
+          path: build.log
+          if-no-files-found: error
       - name: Verify APK
+        if: steps.build.outcome == 'success'
         run: |
           set -euo pipefail
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify -verbose app/build/outputs/apk/release/app-release.apk
           ls -lh app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
+        if: steps.build.outcome == 'success'
         with:
           name: key-contacts-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+      - name: Fail build when Gradle failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
