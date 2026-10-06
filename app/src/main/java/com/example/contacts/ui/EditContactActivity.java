@@ -41,6 +41,7 @@ public class EditContactActivity extends BaseKeyActivity {
  }
  private void cancel(){finish();}
  static final class UriHolder{static android.net.Uri raw;}
+ @Override protected boolean allowTextInput(){return true;}
  @Override protected void onKeyAction(KeyMapper.Result r,boolean down){if(down)return;switch(r.action){case UP:focus(-1);break;case DOWN:focus(1);break;case SELECT:if(getCurrentFocus()==type)pickType();else save();break;case SOFT_LEFT:save();break;case SOFT_RIGHT:cancel();break;case MENU:save();break;case BACK:cancel();break;default:break;}}
  private void focus(int d){View v=getCurrentFocus();if(v==first)(d>0?last:first).requestFocus();else if(v==last)(d>0?phone:first).requestFocus();else if(v==phone)(d>0?email:last).requestFocus();else if(v==email)(d>0?note:phone).requestFocus();else if(v==note)(d>0?first:email).requestFocus();else if(v==type)(d>0?email:phone).requestFocus();}
 }
