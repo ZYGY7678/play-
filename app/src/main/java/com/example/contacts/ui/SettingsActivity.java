@@ -20,6 +20,7 @@ import com.example.contacts.data.ContactTools;
 import com.example.contacts.data.ContactsRepository;
 import com.example.contacts.keys.KeyMapper;
 import com.example.contacts.util.AppPrefs;
+import com.example.contacts.util.CodeDialog;
 import com.example.contacts.util.Palette;
 import com.example.contacts.widget.FocusableRow;
 
@@ -86,7 +87,7 @@ public class SettingsActivity extends BaseKeyActivity {
         else if(p==8)AppPrefs.put(this,"circular",!AppPrefs.bool(this,"circular",false));
         else if(p==9)AppPrefs.put(this,"volume_page",!AppPrefs.bool(this,"volume_page",true));
         else if(p==10)AppPrefs.put(this,"animations",!AppPrefs.bool(this,"animations",true));
-        else if(p==11)AppPrefs.put(this,"kids_lock",!AppPrefs.bool(this,"kids_lock",false));
+        else if(p==11){if(AppPrefs.bool(this,"guard_enabled",false)){CodeDialog.check(this,new CodeDialog.Done(){public void onDone(){AppPrefs.put(SettingsActivity.this,"kids_lock",false);buildLabels();build();}});return;}else{CodeDialog.setCode(this,new CodeDialog.Done(){public void onDone(){AppPrefs.put(SettingsActivity.this,"kids_lock",true);buildLabels();build();}});return;}}
         else if(p>=12&&p<=19){speedDial(p-10);return;}
         else if(p==20){backup();return;}
         else if(p==21){pickVcard();return;}
