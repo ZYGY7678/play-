@@ -221,6 +221,15 @@ public class InCallActivity extends BaseKeyActivity {
             case CALL:
                 if(incoming&&!ended&&CallStateHolder.startTime==0)answer();else if(ended)startDialAgain();
                 break;
+            case SOFT_LEFT:
+                if(incoming&&!ended&&CallStateHolder.startTime==0)answer();else toggleMute();
+                break;
+            case SOFT_RIGHT:
+                if(incoming&&!ended&&CallStateHolder.startTime==0)endCall();else endCall();
+                break;
+            case MENU:
+                Toast.makeText(this,"אפשרויות שיחה: השתּק / רמקול / ניתוק",Toast.LENGTH_SHORT).show();
+                break;
             case BACK:
                 if(ended)finish();
                 break;
@@ -234,10 +243,17 @@ public class InCallActivity extends BaseKeyActivity {
                 executeAction();
                 break;
             case DIGIT:
-                if(r.digit==1)toggleMute();else if(r.digit==2)toggleSpeaker();else if(r.digit==3)Toast.makeText(this,"מקלדת DTMF אינה זמינה ב-ROM רגיל",Toast.LENGTH_SHORT).show();
+                if(r.digit==1)toggleMute();
+                else if(r.digit==2)toggleSpeaker();
+                else if(r.digit==3)Toast.makeText(this,"מקלדת DTMF אינה זמינה ב-ROM רגיל",Toast.LENGTH_SHORT).show();
+                else if(r.digit==0&&!ended)Toast.makeText(this,"DTMF 0 אינו זמין ללא הרשאת מערכת",Toast.LENGTH_SHORT).show();
                 break;
-            case PAGE_UP:volume(1);break;
-            case PAGE_DOWN:volume(-1);break;
+            case PAGE_UP:
+                if(incoming&&!ended&&CallStateHolder.startTime==0)muteRinger();else volume(1);
+                break;
+            case PAGE_DOWN:
+                if(incoming&&!ended&&CallStateHolder.startTime==0)muteRinger();else volume(-1);
+                break;
             default:break;
         }
     }
@@ -247,7 +263,7 @@ public class InCallActivity extends BaseKeyActivity {
         bottomCenter.setText(action==0?"השתק":action==1?"רמקול":"ניתוק");
     }
     private void executeAction(){if(incoming&&!ended&&CallStateHolder.startTime==0){answer();return;}if(action==0)toggleMute();else if(action==1)toggleSpeaker();else endCall();}
-    private void volume(int d){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL,d>0?AudioManager.ADJUST_RAISE:AudioManager.ADJUST_LOWER,0);}
+    private void muteRinger(){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.setRingerMode(AudioManager.RINGER_MODE_SILENT);status.setText("צלצול מושתק");}\n    private void volume(int d){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL,d>0?AudioManager.ADJUST_RAISE:AudioManager.ADJUST_LOWER,0);}
     private void startDialAgain(){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(numberValue))));}catch(Exception ignored){}}
     @Override protected void onPause(){super.onPause();if(CallStateHolder.active&&!isFinishing())handler.postDelayed(new Runnable(){public void run(){try{startActivity(new Intent(InCallActivity.this,InCallActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));}catch(Exception ignored){}}},300);}
     @Override protected void onDestroy(){handler.removeCallbacks(clock);super.onDestroy();}
