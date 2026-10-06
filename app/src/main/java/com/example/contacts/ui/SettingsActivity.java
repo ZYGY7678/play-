@@ -72,7 +72,7 @@ public class SettingsActivity extends BaseKeyActivity {
         list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(true);
         list.setAdapter(new BaseAdapter(){
             public int getCount(){return labels.size();}public Object getItem(int p){return labels.get(p);}public long getItemId(int p){return p;}
-            public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);r.addView(txt((p+1)+"   "+labels.get(p),17),new LinearLayout.LayoutParams(-1,Ui.dp(this,72)));return r;}
+            public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);r.addView(txt((p+1)+"   "+labels.get(p),17),new LinearLayout.LayoutParams(-1,Ui.dp(SettingsActivity.this,72)));return r;}
         });
         root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);list.requestFocus();list.setSelection(selected);
     }
