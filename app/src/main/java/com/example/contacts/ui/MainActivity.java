@@ -64,54 +64,60 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
   root.addView(buildBottom(),new LinearLayout.LayoutParams(-1,50));setContentView(root);switchTab(DIAL);tabRow.getChildAt(0).requestFocus();
  }
  private View buildHeader(){
-  LinearLayout outer=new LinearLayout(this);outer.setOrientation(LinearLayout.VERTICAL);outer.setBackgroundColor(Palette.bar(this));
-  LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER_VERTICAL);
-  TextView left=topText("‹"),right=topText("›");title=topText("חיוג");title.setTextSize(22*Palette.scale(this));line.addView(left,new LinearLayout.LayoutParams(48,44));line.addView(title,new LinearLayout.LayoutParams(0,44,1));line.addView(right,new LinearLayout.LayoutParams(48,44));
+  LinearLayout outer=new LinearLayout(this);outer.setOrientation(LinearLayout.VERTICAL);outer.setBackgroundColor(Palette.bar(this));outer.setPadding(0,Ui.dp(this,2),0,0);
+  LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER_VERTICAL);line.setPadding(Ui.dp(this,10),0,Ui.dp(this,10),0);
+  TextView left=topText("‹"),right=topText("›");left.setContentDescription("לשונית קודמת");right.setContentDescription("לשונית הבאה");
+  title=topText("חיוג");title.setTextSize(22*Palette.scale(this));title.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+  line.addView(left,new LinearLayout.LayoutParams(Ui.dp(this,46),Ui.dp(this,44)));line.addView(title,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));line.addView(right,new LinearLayout.LayoutParams(Ui.dp(this,46),Ui.dp(this,44)));
   left.setOnClickListener(new View.OnClickListener(){public void onClick(View v){moveTab(-1);}});right.setOnClickListener(new View.OnClickListener(){public void onClick(View v){moveTab(1);}});
-  outer.addView(line,new LinearLayout.LayoutParams(-1,44));
-  tabRow=new LinearLayout(this);tabRow.setGravity(Gravity.CENTER);
+  outer.addView(line,new LinearLayout.LayoutParams(-1,Ui.dp(this,44)));
+  tabRow=new LinearLayout(this);tabRow.setGravity(Gravity.CENTER);tabRow.setPadding(Ui.dp(this,4),0,Ui.dp(this,4),0);
   final String[] names={"חיוג","אנשי קשר","אחרונות","מועדפים"};
-  for(int i=0;i<4;i++){final int x=i;TextView t=topText(names[i]);t.setTextSize(14);t.setContentDescription(names[i]);t.setOnClickListener(new View.OnClickListener(){public void onClick(View v){switchTab(x);}});tabRow.addView(t,new LinearLayout.LayoutParams(0,28,1));}
-  outer.addView(tabRow,new LinearLayout.LayoutParams(-1,28));dots=topText("●  ○  ○  ○");dots.setFocusable(false);dots.setClickable(false);dots.setTextSize(9);outer.addView(dots,new LinearLayout.LayoutParams(-1,14));return outer;
- }
- private TextView topText(String s){TextView t=new TextView(this);t.setText(s);t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER);t.setFocusable(true);t.setFocusableInTouchMode(false);t.setBackgroundResource(com.example.contacts.R.drawable.row_selector);return t;}
+  for(int i=0;i<4;i++){final int x=i;LinearLayout cell=new LinearLayout(this);cell.setOrientation(LinearLayout.VERTICAL);cell.setGravity(Gravity.CENTER);cell.setFocusable(true);cell.setFocusableInTouchMode(false);cell.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+    TextView label=topText(names[i]);label.setTextSize(13*Palette.scale(this));label.setContentDescription(names[i]);label.setBackgroundColor(android.graphics.Color.TRANSPARENT);label.setFocusable(false);
+    View indicator=new View(this);indicator.setBackgroundColor(Palette.accent(this));cell.addView(label,new LinearLayout.LayoutParams(-1,Ui.dp(this,25)));cell.addView(indicator,new LinearLayout.LayoutParams(Ui.dp(this,34),Ui.dp(this,3)));
+    cell.setOnFocusChangeListener(new View.OnFocusChangeListener(){public void onFocusChange(View v,boolean b){TextView l=(TextView)((ViewGroup)v).getChildAt(0);View ind=((ViewGroup)v).getChildAt(1);l.setTextColor(b?Palette.text(MainActivity.this):Palette.secondary(MainActivity.this));ind.setVisibility(b?View.VISIBLE:View.INVISIBLE);}});
+    indicator.setVisibility(i==tab?View.VISIBLE:View.INVISIBLE);cell.setOnClickListener(new View.OnClickListener(){public void onClick(View v){switchTab(x);}});tabRow.addView(cell,new LinearLayout.LayoutParams(0,Ui.dp(this,30),1));}
+  outer.addView(tabRow,new LinearLayout.LayoutParams(-1,Ui.dp(this,30)));
+  dots=topText("●  ○  ○  ○");dots.setFocusable(false);dots.setClickable(false);dots.setTextSize(8);dots.setTextColor(Palette.accent(this));outer.addView(dots,new LinearLayout.LayoutParams(-1,Ui.dp(this,8)));return outer;
+}
+private TextView topText(String s){TextView t=new TextView(this);t.setText(s);t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER);t.setFocusable(true);t.setFocusableInTouchMode(false);t.setBackgroundResource(com.example.contacts.R.drawable.row_selector);return t;}
  private View buildBottom(){
-  LinearLayout b=new LinearLayout(this);b.setGravity(Gravity.CENTER_VERTICAL);b.setBackgroundColor(Palette.bar(this));
-  softLeft=topText("אפשרויות");center=topText("OK");softRight=topText("חזרה / חפש");b.addView(softLeft,new LinearLayout.LayoutParams(0,50,1));b.addView(center,new LinearLayout.LayoutParams(0,50,1));b.addView(softRight,new LinearLayout.LayoutParams(0,50,1));
+  LinearLayout b=new LinearLayout(this);b.setGravity(Gravity.CENTER_VERTICAL);b.setBackgroundColor(Palette.bar(this));b.setPadding(Ui.dp(this,8),Ui.dp(this,3),Ui.dp(this,8),Ui.dp(this,3));
+  softLeft=topText("אפשרויות");center=topText("OK");softRight=topText("חזרה");softLeft.setTextSize(13*Palette.scale(this));center.setTextSize(14*Palette.scale(this));softRight.setTextSize(13*Palette.scale(this));center.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+  b.addView(softLeft,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));b.addView(center,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));b.addView(softRight,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
   softLeft.setOnClickListener(new View.OnClickListener(){public void onClick(View v){softLeft();}});center.setOnClickListener(new View.OnClickListener(){public void onClick(View v){select();}});softRight.setOnClickListener(new View.OnClickListener(){public void onClick(View v){softRight();}});return b;
- }
- private void switchTab(int t){
+}
+private void switchTab(int t){
   tab=t;selected=0;contactSearch=false;query="";body.removeAllViews();title.setText(new String[]{"חיוג","אנשי קשר","אחרונות","מועדפים"}[tab]);
   if(tab==DIAL)buildDialer();else if(tab==CONTACTS)buildContacts();else if(tab==RECENTS)buildRecents();else buildFavs();
   if(AppPrefs.bool(this,"animations",true)){body.setAlpha(0f);body.setTranslationX(t>0?18f:-18f);body.animate().alpha(1f).translationX(0f).setDuration(180).start();}else{body.setAlpha(1f);body.setTranslationX(0f);}
-  for(int i=0;i<4;i++){TextView v=(TextView)tabRow.getChildAt(i);v.setTextColor(i==tab?Palette.accent(this):Palette.secondary(this));}if(dots!=null){StringBuilder marker=new StringBuilder();for(int i=0;i<4;i++){if(i>0)marker.append("  ");marker.append(i==tab?"●":"○");}dots.setText(marker.toString());dots.setTextColor(Palette.accent(this));}
- }
- private void buildDialer(){
-  FrameLayout f=new FrameLayout(this);
-  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(16,12,16,8);
-  searchBar=makeInfo("הקלד מספר או שם",13);box.addView(searchBar,new LinearLayout.LayoutParams(-1,30));
-  final TextView number=makeInfo("0",32);number.setTag("dial");number.setText("");number.setGravity(Gravity.CENTER);number.setTextDirection(View.TEXT_DIRECTION_LTR);box.addView(number,new LinearLayout.LayoutParams(-1,70));
-  list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setItemsCanFocus(true);
-  box.addView(list,new LinearLayout.LayoutParams(-1,0,1));f.addView(box,new FrameLayout.LayoutParams(-1,-1));body.addView(f);softRight.setText("חזרה");center.setText("חייג");softLeft.setText("אפשרויות");updateDialSuggestions();number.requestFocus();
- }
- private void buildContacts(){
-  FrameLayout f=new FrameLayout(this);
-  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);searchBar=makeInfo("",15);searchBar.setVisibility(View.GONE);searchBar.setGravity(Gravity.CENTER|Gravity.RIGHT);searchBar.setTextColor(Palette.accent(this));box.addView(searchBar,new LinearLayout.LayoutParams(-1,38));
+  for(int i=0;i<4;i++){LinearLayout cell=(LinearLayout)tabRow.getChildAt(i);TextView label=(TextView)cell.getChildAt(0);View ind=cell.getChildAt(1);boolean active=i==tab;label.setTextColor(active?Palette.accent(this):Palette.secondary(this));ind.setVisibility(active?View.VISIBLE:View.INVISIBLE);}
+  if(dots!=null){StringBuilder marker=new StringBuilder();for(int i=0;i<4;i++){if(i>0)marker.append("  ");marker.append(i==tab?"●":"○");}dots.setText(marker.toString());dots.setTextColor(Palette.accent(this));}
+}
+private void buildDialer(){
+  FrameLayout f=new FrameLayout(this);f.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,6));LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
+  LinearLayout hero=new LinearLayout(this);hero.setOrientation(LinearLayout.VERTICAL);hero.setGravity(Gravity.CENTER);hero.setPadding(Ui.dp(this,14),Ui.dp(this,10),Ui.dp(this,14),Ui.dp(this,10));hero.setBackground(Ui.gradient(0xff172332,0xff101722,0xff245681,1,16,this));
+  searchBar=makeInfo("⌕   הקלד מספר או שם",13);searchBar.setGravity(Gravity.CENTER);searchBar.setTextColor(Palette.secondary(this));hero.addView(searchBar,new LinearLayout.LayoutParams(-1,Ui.dp(this,28)));
+  final TextView number=makeInfo("",34);number.setTag("dial");number.setGravity(Gravity.CENTER);number.setTextColor(Palette.text(this));number.setTextDirection(View.TEXT_DIRECTION_LTR);hero.addView(number,new LinearLayout.LayoutParams(-1,Ui.dp(this,68)));
+  TextView mode=makeInfo("0–9  •  0 ארוך = +  •  #/* = אות  •  BACK = מחיקה",11);mode.setGravity(Gravity.CENTER);mode.setTextColor(Palette.secondary(this));hero.addView(mode,new LinearLayout.LayoutParams(-1,Ui.dp(this,24)));box.addView(hero,new LinearLayout.LayoutParams(-1,Ui.dp(this,136)));
+  LinearLayout callRow=new LinearLayout(this);callRow.setGravity(Gravity.CENTER);callRow.setPadding(Ui.dp(this,34),Ui.dp(this,8),Ui.dp(this,34),Ui.dp(this,8));callRow.setBackground(Ui.rounded(Palette.GREEN,Palette.GREEN,1,16,this));callRow.setFocusable(false);
+  IconView ci=new IconView(this);ci.setType(IconView.CALL);TextView cl=makeInfo("חייג",18);cl.setTextColor(android.graphics.Color.WHITE);cl.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);cl.setGravity(Gravity.CENTER);callRow.addView(ci,new LinearLayout.LayoutParams(Ui.dp(this,42),Ui.dp(this,42)));callRow.addView(cl,new LinearLayout.LayoutParams(0,Ui.dp(this,42),1));callRow.setOnClickListener(new View.OnClickListener(){public void onClick(View v){callDial();}});LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(Ui.dp(this,220),Ui.dp(this,58));cp.gravity=Gravity.CENTER;box.addView(callRow,cp);
+  TextView match=makeInfo("התאמות אחרונות",13);match.setTextColor(Palette.secondary(this));match.setPadding(Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4),0);box.addView(match,new LinearLayout.LayoutParams(-1,Ui.dp(this,26)));
+  list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setItemsCanFocus(true);box.addView(list,new LinearLayout.LayoutParams(-1,0,1));f.addView(box,new FrameLayout.LayoutParams(-1,-1));body.addView(f);softRight.setText("חזרה");center.setText("חייג");softLeft.setText("אפשרויות");updateDialSuggestions();number.requestFocus();
+}
+private void buildContacts(){
+  FrameLayout f=new FrameLayout(this);f.setPadding(Ui.dp(this,8),Ui.dp(this,6),Ui.dp(this,8),0);LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
+  searchBar=makeInfo("",15);searchBar.setVisibility(View.GONE);searchBar.setGravity(Gravity.CENTER);searchBar.setTextColor(Palette.accent(this));searchBar.setBackground(Ui.rounded(0xff182332,Palette.accent(this),1,12,this));box.addView(searchBar,new LinearLayout.LayoutParams(-1,Ui.dp(this,38)));
   list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setDrawSelectorOnTop(false);list.setChoiceMode(ListView.CHOICE_MODE_NONE);list.setItemsCanFocus(true);contactsAdapter=new ContactAdapter(this,contactRows);list.setAdapter(contactsAdapter);
   list.setOnItemClickListener(new AdapterView.OnItemClickListener(){public void onItemClick(AdapterView<?> a,View v,int p,long id){if(p>=0&&p<contactRows.size()&&contactRows.get(p).kind==1)open(contactRows.get(p).contact);}});
-  box.addView(list,new LinearLayout.LayoutParams(-1,0,1));f.addView(box,new FrameLayout.LayoutParams(-1,-1));
-  emptyView=makeInfo("אין אנשי קשר. לחץ על אפשרויות כדי להוסיף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);
-  TextView alpha=makeInfo("א\nב\nג\nד\nה\nו\nז\nח\nט\nי\nכ\nל\nמ\nנ\nס\nע\nפ\nצ\nק\nר\nש\nת",9);alpha.setTextColor(Palette.secondary(this));alpha.setGravity(Gravity.CENTER);alpha.setFocusable(false);alpha.setClickable(false);
-  FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(24,-1,Gravity.RIGHT);ap.topMargin=42;ap.bottomMargin=44;f.addView(alpha,ap);body.addView(f);
+  box.addView(list,new LinearLayout.LayoutParams(-1,0,1));f.addView(box,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין אנשי קשר\nלחץ על אפשרויות כדי להוסיף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);
+  TextView alpha=makeInfo("א\nב\nג\nד\nה\nו\nז\nח\nט\nי\nכ\nל\nמ\nנ\nס\nע\nפ\nצ\nק\nר\nש\nת",9);alpha.setTextColor(Palette.secondary(this));alpha.setGravity(Gravity.CENTER);alpha.setFocusable(false);alpha.setClickable(false);alpha.setBackgroundColor(0x42121D2A);FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(Ui.dp(this,24),-1,Gravity.RIGHT);ap.topMargin=Ui.dp(this,44);ap.bottomMargin=Ui.dp(this,44);f.addView(alpha,ap);body.addView(f);
   softRight.setText("חפש");softLeft.setText("אפשרויות");center.setText("פתיחה");rebuildContactRows();list.requestFocus();
- }
- private void buildRecents(){
-  FrameLayout f=new FrameLayout(this);list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setItemsCanFocus(true);recentAdapter=new CallLogAdapter(this,recents);list.setAdapter(recentAdapter);f.addView(list,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין שיחות אחרונות",20);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("פרטים");list.requestFocus();
- }
- private void buildFavs(){
-  FrameLayout f=new FrameLayout(this);grid=new GridView(this);grid.setNumColumns(2);grid.setPadding(Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12));grid.setVerticalSpacing(Ui.dp(this,8));grid.setHorizontalSpacing(Ui.dp(this,8));grid.setSelector(com.example.contacts.R.drawable.row_selector);favAdapter=new FavoriteAdapter(this,getFavorites());grid.setAdapter(favAdapter);f.addView(grid,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין מועדפים\nלחץ על איש קשר ובחר מועדף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));grid.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("חייג");grid.requestFocus();
- }
- private TextView makeInfo(String s,float sp){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER_VERTICAL);return t;}
+}
+private void buildRecents(){FrameLayout f=new FrameLayout(this);f.setPadding(Ui.dp(this,8),Ui.dp(this,8),Ui.dp(this,8),0);list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setItemsCanFocus(true);recentAdapter=new CallLogAdapter(this,recents);list.setAdapter(recentAdapter);f.addView(list,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין שיחות אחרונות\nשיחות חדשות יופיעו כאן",19);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("פרטים");list.requestFocus();}
+private void buildFavs(){FrameLayout f=new FrameLayout(this);f.setPadding(Ui.dp(this,8),Ui.dp(this,8),Ui.dp(this,8),0);grid=new GridView(this);grid.setNumColumns(2);grid.setPadding(Ui.dp(this,10),Ui.dp(this,10),Ui.dp(this,10),Ui.dp(this,10));grid.setVerticalSpacing(Ui.dp(this,10));grid.setHorizontalSpacing(Ui.dp(this,10));grid.setSelector(com.example.contacts.R.drawable.row_selector);grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);favAdapter=new FavoriteAdapter(this,getFavorites());grid.setAdapter(favAdapter);f.addView(grid,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין מועדפים\nהוסף כוכב לאיש קשר כדי שיופיע כאן",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));grid.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText(AppPrefs.bool(this,"favorite_ok_detail",false)?"פרטים":"חייג");grid.requestFocus();}
+private TextView makeInfo(String s,float sp){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER_VERTICAL);return t;}
  private void rebuildContactRows(){
   contactRows.clear();String last="";for(ContactModel c:filtered){String h=c.name.trim().length()==0?"#":c.name.trim().substring(0,1).toUpperCase(Locale.getDefault());if(!h.equals(last)){last=h;contactRows.add(new ContactAdapter.Row(h));}contactRows.add(new ContactAdapter.Row(c));}
   if(contactsAdapter!=null){contactsAdapter.actionMode=0;contactsAdapter.setRows(contactRows);}
