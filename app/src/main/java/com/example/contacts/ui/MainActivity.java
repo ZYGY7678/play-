@@ -82,6 +82,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
  private void switchTab(int t){
   tab=t;selected=0;contactSearch=false;query="";body.removeAllViews();title.setText(new String[]{"חיוג","אנשי קשר","אחרונות","מועדפים"}[tab]);
   if(tab==DIAL)buildDialer();else if(tab==CONTACTS)buildContacts();else if(tab==RECENTS)buildRecents();else buildFavs();
+  if(AppPrefs.bool(this,"animations",true)){body.setAlpha(0f);body.setTranslationX(t>0?18f:-18f);body.animate().alpha(1f).translationX(0f).setDuration(180).start();}else{body.setAlpha(1f);body.setTranslationX(0f);}
   for(int i=0;i<4;i++){TextView v=(TextView)tabRow.getChildAt(i);v.setTextColor(i==tab?Palette.accent(this):Palette.secondary(this));}
  }
  private void buildDialer(){
