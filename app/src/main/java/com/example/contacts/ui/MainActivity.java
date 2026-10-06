@@ -36,6 +36,7 @@ import com.example.contacts.keys.KeyMapper;
 import com.example.contacts.keys.T9Matcher;
 import com.example.contacts.util.AppPrefs;
 import com.example.contacts.util.Palette;
+import com.example.contacts.util.Ui;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.widget.FocusableRow;
 
