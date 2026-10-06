@@ -20,7 +20,7 @@ public abstract class BaseKeyActivity extends android.app.Activity{
    longHandled=false;onKeyAction(r,true);return true;
   }
   if(e.getAction()==KeyEvent.ACTION_UP){
-   if((e.getFlags()&KeyEvent.FLAG_CANCELED_LONG_PRESS)==0&&!longHandled)onKeyAction(r,false);
+   if((e.getFlags()&KeyEvent.FLAG_CANCELED_LONG_PRESS)==0&&!longHandled){if(com.example.contacts.util.AppPrefs.bool(this,"sounds",true)){try{((android.media.AudioManager)getSystemService(AUDIO_SERVICE)).playSoundEffect(android.view.SoundEffectConstants.CLICK);}catch(Exception ignored){}}onKeyAction(r,false);}
    return true;
   }
   return true;
