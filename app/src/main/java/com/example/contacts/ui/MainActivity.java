@@ -1,6 +1,6 @@
 package com.example.contacts.ui;
 
-import android.app.CursorLoader;
+import android.content.CursorLoader;
 import android.app.LoaderManager;
 import android.content.ContentValues;
 import android.content.Intent;
