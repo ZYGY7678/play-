@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.ContactsContract;
+import com.example.contacts.util.PhoneFormatter;
 
 import java.io.BufferedReader;
 import java.io.File;
