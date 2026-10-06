@@ -4,6 +4,8 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -20,7 +22,7 @@ public class EditContactActivity extends BaseKeyActivity {
  private EditText first,last,phone,email,note; private TextView type; private long id=-1;
  @Override protected void onCreate(Bundle b){super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);id=getIntent().getLongExtra("contactId",-1);build();if(id>=0)load();}
  private TextView t(String s,float z){TextView v=new TextView(this);v.setText(s);v.setTextSize(z*Palette.scale(this));v.setTextColor(Palette.text(this));v.setGravity(Gravity.CENTER);return v;}
- private EditText e(String h){EditText x=new EditText(this);x.setHint(h);x.setHintTextColor(Palette.secondary(this));x.setTextColor(Palette.text(this));x.setTextSize(18*Palette.scale(this));x.setSingleLine(true);x.setFocusable(true);x.setFocusableInTouchMode(false);return x;}
+ private EditText e(String h){EditText x=new EditText(this);x.setHint(h);x.setHintTextColor(Palette.secondary(this));x.setTextColor(Palette.text(this));x.setTextSize(18*Palette.scale(this));x.setSingleLine(true);x.setFocusable(true);x.setFocusableInTouchMode(false);GradientDrawable normal=Ui.rounded(Palette.row(this),Palette.row(this),0,12,this);GradientDrawable focus=Ui.rounded(Palette.row(this),Palette.accent(this),2,12,this);StateListDrawable states=new StateListDrawable();states.addState(new int[]{android.R.attr.state_focused},focus);states.addState(new int[]{},normal);x.setBackground(states);x.setPadding(Ui.dp(this,14),0,Ui.dp(this,14),0);return x;}
  private void build(){LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setBackgroundColor(Palette.bg(this));
   r.addView(t(id<0?"הוספת איש קשר":"עריכת איש קשר",22),new LinearLayout.LayoutParams(-1,Ui.dp(this,54)));
   r.addView(t("עב / EN / 123  •  IME של המכשיר",12),new LinearLayout.LayoutParams(-1,Ui.dp(this,30)));
