@@ -126,9 +126,11 @@ public class InCallActivity extends BaseKeyActivity {
         ended=i.getBooleanExtra("ended",false)||!CallStateHolder.active;
         if(numberValue.length()==0)numberValue=CallStateHolder.number;
         number.setText(PhoneFormatter.ltr(PhoneFormatter.format(numberValue)));
-        String who=ContactsRepository.lookupName(this,numberValue);
-        name.setText(who.length()>0?who:(incoming?"מספר לא ידוע":"שיחה יוצאת"));
-        ((TextView)avatar).setText(who.length()>0?who.substring(0,1):"?");
+        name.setText(incoming?"מספר לא ידוע":"שיחה יוצאת");
+        new android.os.AsyncTask<Void,Void,String>() {
+            protected String doInBackground(Void... v){return ContactsRepository.lookupName(InCallActivity.this,numberValue);}
+            protected void onPostExecute(String who){if(who!=null&&who.length()>0){name.setText(who);((TextView)avatar).setText(who.substring(0,1));}}
+        }.executeOnExecutor(android.os.AsyncTask.THREAD_POOL_EXECUTOR);
         if(ended){
             status.setText("השיחה הסתיימה");
             bottomLeft.setText("חייג שוב");
