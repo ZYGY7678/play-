@@ -56,6 +56,7 @@ public class SettingsActivity extends BaseKeyActivity {
         labels.add("גיבוי אנשי קשר ל-vCard");
         labels.add("ייבוא vCard");
         labels.add("איחוד כפילויות לפי מספר");
+        labels.add("OK במועדפים: " + (AppPrefs.bool(this,"favorite_ok_detail",false) ? "פרטים" : "חיוג"));
     }
 
     private TextView txt(String s,float sp) {
@@ -92,6 +93,7 @@ public class SettingsActivity extends BaseKeyActivity {
         else if(p==20){backup();return;}
         else if(p==21){pickVcard();return;}
         else if(p==22){merge();}
+        else if(p==23){AppPrefs.put(this,"favorite_ok_detail",!AppPrefs.bool(this,"favorite_ok_detail",false));}
         buildLabels();build();
     }
 
