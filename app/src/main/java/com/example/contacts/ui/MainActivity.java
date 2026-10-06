@@ -100,28 +100,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
   list.setOnItemClickListener(new AdapterView.OnItemClickListener(){public void onItemClick(AdapterView<?> a,View v,int p,long id){if(p>=0&&p<contactRows.size()&&contactRows.get(p).kind==1)open(contactRows.get(p).contact);}});
   box.addView(list,new LinearLayout.LayoutParams(-1,0,1));f.addView(box,new FrameLayout.LayoutParams(-1,-1));
   emptyView=makeInfo("אין אנשי קשר. לחץ על אפשרויות כדי להוסיף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);
-  TextView alpha=makeInfo("א
-ב
-ג
-ד
-ה
-ו
-ז
-ח
-ט
-י
-כ
-ל
-מ
-נ
-ס
-ע
-פ
-צ
-ק
-ר
-ש
-ת",9);alpha.setTextColor(Palette.secondary(this));alpha.setGravity(Gravity.CENTER);alpha.setFocusable(false);alpha.setClickable(false);
+  TextView alpha=makeInfo("א\nב\nג\nד\nה\nו\nז\nח\nט\nי\nכ\nל\nמ\nנ\nס\nע\nפ\nצ\nק\nר\nש\nת",9);alpha.setTextColor(Palette.secondary(this));alpha.setGravity(Gravity.CENTER);alpha.setFocusable(false);alpha.setClickable(false);
   FrameLayout.LayoutParams ap=new FrameLayout.LayoutParams(24,-1,Gravity.RIGHT);ap.topMargin=42;ap.bottomMargin=44;f.addView(alpha,ap);body.addView(f);
   softRight.setText("חפש");softLeft.setText("אפשרויות");center.setText("פתיחה");rebuildContactRows();list.requestFocus();
  }
@@ -129,8 +108,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
   FrameLayout f=new FrameLayout(this);list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setItemsCanFocus(true);recentAdapter=new CallLogAdapter(this,recents);list.setAdapter(recentAdapter);f.addView(list,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין שיחות אחרונות",20);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("פרטים");list.requestFocus();
  }
  private void buildFavs(){
-  FrameLayout f=new FrameLayout(this);grid=new GridView(this);grid.setNumColumns(2);grid.setPadding(Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12));grid.setVerticalSpacing(Ui.dp(this,8));grid.setHorizontalSpacing(Ui.dp(this,8));grid.setSelector(com.example.contacts.R.drawable.row_selector);favAdapter=new FavoriteAdapter(this,getFavorites());grid.setAdapter(favAdapter);f.addView(grid,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין מועדפים
-לחץ על איש קשר ובחר מועדף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));grid.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("חייג");grid.requestFocus();
+  FrameLayout f=new FrameLayout(this);grid=new GridView(this);grid.setNumColumns(2);grid.setPadding(Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12),Ui.dp(this,12));grid.setVerticalSpacing(Ui.dp(this,8));grid.setHorizontalSpacing(Ui.dp(this,8));grid.setSelector(com.example.contacts.R.drawable.row_selector);favAdapter=new FavoriteAdapter(this,getFavorites());grid.setAdapter(favAdapter);f.addView(grid,new FrameLayout.LayoutParams(-1,-1));emptyView=makeInfo("אין מועדפים\nלחץ על איש קשר ובחר מועדף",18);emptyView.setGravity(Gravity.CENTER);emptyView.setTextColor(Palette.secondary(this));f.addView(emptyView,new FrameLayout.LayoutParams(-1,-1));grid.setEmptyView(emptyView);body.addView(f,new LinearLayout.LayoutParams(-1,0,1));softRight.setText("חזרה");softLeft.setText("אפשרויות");center.setText("חייג");grid.requestFocus();
  }
  private TextView makeInfo(String s,float sp){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(Palette.text(this));t.setGravity(Gravity.CENTER_VERTICAL);return t;}
  private void rebuildContactRows(){
@@ -141,8 +119,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
  private void applyFilter(){
   final String q=query;final boolean he=AppPrefs.bool(this,"t9_hebrew",true);
   new AsyncTask<Void,Void,ArrayList<ContactModel>>(){protected ArrayList<ContactModel> doInBackground(Void...v){ArrayList<ContactModel> x=new ArrayList<ContactModel>();for(ContactModel c:contacts)if(T9Matcher.matches(c,q,he))x.add(c);return x;}
-   protected void onPostExecute(ArrayList<ContactModel>x){filtered.clear();filtered.addAll(x);rebuildContactRows();if(list!=null&&x.size()>0){int target=restoring?restoredSelection:0;list.setSelection(Math.min(Math.max(0,target),x.size()+contactRows.size()-1));selected=list.getSelectedItemPosition();restoring=false;}if(emptyView!=null&&tab==CONTACTS){emptyView.setText(q.length()>0?"לא נמצאו תוצאות עבור "+q+"
-לחץ CALL כדי לחייג":"אין אנשי קשר. לחץ על אפשרויות כדי להוסיף");}}
+   protected void onPostExecute(ArrayList<ContactModel>x){filtered.clear();filtered.addAll(x);rebuildContactRows();if(list!=null&&x.size()>0){int target=restoring?restoredSelection:0;list.setSelection(Math.min(Math.max(0,target),x.size()+contactRows.size()-1));selected=list.getSelectedItemPosition();restoring=false;}if(emptyView!=null&&tab==CONTACTS){emptyView.setText(q.length()>0?"לא נמצאו תוצאות עבור "+q+"\nלחץ CALL כדי לחייג":"אין אנשי קשר. לחץ על אפשרויות כדי להוסיף");}}
   }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
  }
  private void updateDialSuggestions(){if(list==null)return;final ArrayList<ContactModel> s=new ArrayList<ContactModel>();if(dial.length()>0){for(ContactModel c:contacts){if(T9Matcher.matches(c,dial,AppPrefs.bool(this,"t9_hebrew",true))){s.add(c);if(s.size()==3)break;}}}list.setAdapter(new BaseAdapter(){public int getCount(){return s.size();}public Object getItem(int p){return s.get(p);}public long getItemId(int p){return s.get(p).id;}public View getView(int p,View v,ViewGroup par){FocusableRow r=new FocusableRow(MainActivity.this);LinearLayout b=new LinearLayout(MainActivity.this);b.setOrientation(LinearLayout.VERTICAL);TextView n=makeInfo(s.get(p).name,19);n.setTypeface(null,android.graphics.Typeface.BOLD);TextView q=makeInfo(PhoneFormatter.ltr(PhoneFormatter.format(s.get(p).primary())),14);q.setTextColor(Palette.secondary(MainActivity.this));b.addView(n);b.addView(q);r.addView(b,new LinearLayout.LayoutParams(0,-1,1));return r;}});}
@@ -181,8 +158,7 @@ public class MainActivity extends BaseKeyActivity implements LoaderManager.Loade
  private void block(String n){String old=AppPrefs.str(this,"blocked","");if(old.indexOf("|"+PhoneFormatter.last9(n)+"|")<0)AppPrefs.put(this,"blocked",old+"|"+PhoneFormatter.last9(n)+"|");Toast.makeText(this,"המספר נחסם בתוך האפליקציה",Toast.LENGTH_SHORT).show();}
  private void favorite(final ContactModel c){ContentValues v=new ContentValues();v.put(ContactsContract.Contacts.STARRED,c.favorite?0:1);getContentResolver().update(ContactsContract.Contacts.CONTENT_URI,v,ContactsContract.Contacts._ID+"=?",new String[]{String.valueOf(c.id)});c.favorite=!c.favorite;if(favAdapter!=null)favAdapter.setData(getFavorites());}
  private void delete(final ContactModel c){if(AppPrefs.bool(this,"kids_lock",false)){Toast.makeText(this,"מצב ילדים פעיל",Toast.LENGTH_SHORT).show();return;}DialogUtil.actions(this,"מחיקת "+c.name,new String[]{"מחק","ביטול"},new DialogUtil.Choice(){public void onChoice(int w){if(w==0){getContentResolver().delete(ContactsContract.Contacts.CONTENT_URI,ContactsContract.Contacts._ID+"=?",new String[]{String.valueOf(c.id)});getLoaderManager().restartLoader(77,null,MainActivity.this);}}});}
- private void share(ContactModel c){Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,c.name+"
-"+c.primary());startActivity(Intent.createChooser(i,"שתף איש קשר"));}
+ private void share(ContactModel c){Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,c.name+"\n"+c.primary());startActivity(Intent.createChooser(i,"שתף איש קשר"));}
  private void edit(ContactModel c){if(AppPrefs.bool(this,"kids_lock",false)){Toast.makeText(this,"מצב ילדים פעיל",Toast.LENGTH_SHORT).show();return;}startActivity(new Intent(this,EditContactActivity.class).putExtra("contactId",c.id).putExtra("name",c.name).putExtra("number",c.primary()));}
  private void add(){if(AppPrefs.bool(this,"kids_lock",false)){Toast.makeText(this,"מצב ילדים פעיל",Toast.LENGTH_SHORT).show();return;}startActivity(new Intent(this,EditContactActivity.class));}
  private void settings(){startActivity(new Intent(this,SettingsActivity.class));}
