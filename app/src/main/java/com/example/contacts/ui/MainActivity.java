@@ -154,7 +154,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
     }
 
     private void buildContacts(){
-        list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(false);list.setChoiceMode(ListView.CHOICE_MODE_NONE);
+        list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(true);list.setChoiceMode(ListView.CHOICE_MODE_NONE);
         contactAdapter=new ContactAdapter(this,filteredContacts);list.setAdapter(contactAdapter);
         list.setOnItemClickListener(new AdapterView.OnItemClickListener(){public void onItemClick(AdapterView<?> a,View v,int p,long id){openContact(filteredContacts.get(p));}});
         content.addView(list,new LinearLayout.LayoutParams(-1,0,1f));
