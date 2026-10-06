@@ -31,7 +31,7 @@ public class SettingsActivity extends Activity {
 
     @Override protected void onCreate(Bundle b){
         super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);
-        p=getPreferences(0);buildLabels();build();
+        p=getSharedPreferences("keycontacts",0);buildLabels();build();
     }
 
     private void buildLabels(){
