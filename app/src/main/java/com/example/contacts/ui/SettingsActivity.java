@@ -22,6 +22,7 @@ import com.example.contacts.keys.KeyMapper;
 import com.example.contacts.util.AppPrefs;
 import com.example.contacts.util.CodeDialog;
 import com.example.contacts.util.Palette;
+import com.example.contacts.util.Ui;
 import com.example.contacts.widget.FocusableRow;
 
 import java.util.ArrayList;
@@ -67,11 +68,11 @@ public class SettingsActivity extends BaseKeyActivity {
 
     private void build() {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Palette.bg(this));
-        TextView title=txt("הגדרות",23);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,56));
+        TextView title=txt("הגדרות",23);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,Ui.dp(this,56)));
         list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(true);
         list.setAdapter(new BaseAdapter(){
             public int getCount(){return labels.size();}public Object getItem(int p){return labels.get(p);}public long getItemId(int p){return p;}
-            public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);r.addView(txt((p+1)+"   "+labels.get(p),17),new LinearLayout.LayoutParams(-1,72));return r;}
+            public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);r.addView(txt((p+1)+"   "+labels.get(p),17),new LinearLayout.LayoutParams(-1,Ui.dp(this,72)));return r;}
         });
         root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);list.requestFocus();list.setSelection(selected);
     }
