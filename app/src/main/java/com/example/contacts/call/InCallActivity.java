@@ -1,117 +1,258 @@
 package com.example.contacts.call;
 
-import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.telephony.PhoneNumberUtils;
-import android.view.KeyEvent;
+import android.net.Uri;
+import android.view.Gravity;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.net.Uri;
 
 import com.example.contacts.data.ContactsRepository;
-import com.example.contacts.util.ColorUtil;
+import com.example.contacts.keys.KeyMapper;
+import com.example.contacts.ui.BaseKeyActivity;
+import com.example.contacts.util.Palette;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.util.Ui;
+import com.example.contacts.widget.FocusableRow;
 
-public class InCallActivity extends Activity {
-    private TextView name,number,status,timer,hint;
+public class InCallActivity extends BaseKeyActivity {
+    private TextView name, number, timer, status, bottomLeft, bottomCenter, bottomRight;
+    private View avatar;
     private final Handler handler=new Handler();
-    private long started;
-    private boolean endedScreen=false,incoming=false;
+    private long started=0L;
     private String numberValue="";
-    private final Runnable tick=new Runnable(){public void run(){updateTimer();if(!endedScreen)handler.postDelayed(this,1000);}};
+    private boolean incoming=false, ended=false;
+    private int action=0;
+
+    private final Runnable clock=new Runnable(){
+        public void run(){updateTimer();if(!ended)handler.postDelayed(this,1000);}
+    };
 
     @Override protected void onCreate(Bundle b){
-        super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED|WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD|
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON|WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        build();apply(getIntent());
+        super.onCreate(b);
+        android.view.Window w=getWindow();
+        w.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                |android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                |android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                |android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        build();
+        apply(getIntent());
     }
+
     @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);apply(i);}
+
+    private void build(){
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Palette.bar(this));
+        root.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,8));
+
+        LinearLayout top=new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_HORIZONTAL);
+        top.setOrientation(LinearLayout.VERTICAL);
+
+        TextView kind=Ui.center(this,"שיחה",13,Palette.secondary(this));
+        top.addView(kind,new LinearLayout.LayoutParams(-1,Ui.dp(this,26)));
+
+        TextView av=new TextView(this);
+        avatar=av;
+        av.setText("?");
+        av.setTextSize(34);
+        av.setTextColor(Palette.text(this));
+        av.setGravity(Gravity.CENTER);
+        av.setBackground(PaletteAware.circle(this,0xff3b6178));
+        top.addView(av,new LinearLayout.LayoutParams(Ui.dp(this,118),Ui.dp(this,118)));
+
+        name=Ui.center(this,"",30,Palette.text(this));
+        name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        top.addView(name,new LinearLayout.LayoutParams(-1,Ui.dp(this,54)));
+
+        number=Ui.center(this,"",18,Palette.secondary(this));
+        number.setTextDirection(View.TEXT_DIRECTION_LTR);
+        top.addView(number,new LinearLayout.LayoutParams(-1,Ui.dp(this,38)));
+
+        timer=Ui.center(this,"00:00",36,Palette.text(this));
+        top.addView(timer,new LinearLayout.LayoutParams(-1,Ui.dp(this,62)));
+
+        status=Ui.center(this,"",18,Palette.accent(this));
+        top.addView(status,new LinearLayout.LayoutParams(-1,Ui.dp(this,38)));
+
+        root.addView(top,new LinearLayout.LayoutParams(-1,0,1));
+
+        LinearLayout actions=new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER);
+        FocusableRow a=new FocusableRow(this);
+        a.setGravity(Gravity.CENTER);
+        a.addView(Ui.center(this,"השתק",16,Palette.text(this)),new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
+        FocusableRow s=new FocusableRow(this);
+        s.setGravity(Gravity.CENTER);
+        s.addView(Ui.center(this,"רמקול",16,Palette.text(this)),new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
+        FocusableRow h=new FocusableRow(this);
+        h.setGravity(Gravity.CENTER);
+        TextView hang=Ui.center(this,"ניתוק",16,Palette.text(this));
+        hang.setTextColor(Palette.RED);
+        h.addView(hang,new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
+        actions.addView(a,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
+        actions.addView(s,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
+        actions.addView(h,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
+        root.addView(actions,new LinearLayout.LayoutParams(-1,Ui.dp(this,74)));
+
+        LinearLayout soft=new LinearLayout(this);
+        soft.setBackgroundColor(Palette.bar(this));
+        bottomLeft=Ui.center(this,"ענה",14,Palette.GREEN);
+        bottomCenter=Ui.center(this,"השתק",14,Palette.text(this));
+        bottomRight=Ui.center(this,"דחה",14,Palette.RED);
+        soft.addView(bottomLeft,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
+        soft.addView(bottomCenter,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
+        soft.addView(bottomRight,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
+        root.addView(soft,new LinearLayout.LayoutParams(-1,Ui.dp(this,48)));
+
+        setContentView(root);
+        a.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleMute();}});
+        s.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleSpeaker();}});
+        h.setOnClickListener(new View.OnClickListener(){public void onClick(View v){endCall();}});
+    }
+
     private void apply(Intent i){
         if(i==null)return;
-        String n=i.getStringExtra("number");if(n!=null&&n.length()>0)numberValue=n;
+        String n=i.getStringExtra("number");
+        if(n!=null&&n.length()>0)numberValue=n;
         incoming=i.getBooleanExtra("incoming",CallStateHolder.incoming);
-        endedScreen=i.getBooleanExtra("ended",false)||!CallStateHolder.active;
+        ended=i.getBooleanExtra("ended",false)||!CallStateHolder.active;
         if(numberValue.length()==0)numberValue=CallStateHolder.number;
-        number.setText(PhoneFormatter.format(numberValue));loadContactName();
-        if(endedScreen){status.setText("השיחה הסתיימה");handler.postDelayed(new Runnable(){public void run(){finish();}},1500);}
-        else if(incoming&&CallStateHolder.active&&CallStateHolder.startTime==0){status.setText("צלצול נכנס");}
-        else{status.setText(CallStateHolder.active?"בשיחה":"מחייג...");started=CallStateHolder.startTime;}
-        handler.removeCallbacks(tick);handler.post(tick);
+        number.setText(PhoneFormatter.ltr(PhoneFormatter.format(numberValue)));
+        String who=ContactsRepository.lookupName(this,numberValue);
+        name.setText(who.length()>0?who:(incoming?"מספר לא ידוע":"שיחה יוצאת"));
+        ((TextView)avatar).setText(who.length()>0?who.substring(0,1):"?");
+        if(ended){
+            status.setText("השיחה הסתיימה");
+            bottomLeft.setText("חייג שוב");
+            bottomCenter.setText("הוסף");
+            bottomRight.setText("סגור");
+            updateTimer();
+            handler.postDelayed(new Runnable(){public void run(){finish();}},1500);
+        } else if(incoming&&CallStateHolder.startTime==0){
+            status.setText("צלצול נכנס");
+            bottomLeft.setText("ענה");
+            bottomCenter.setText("השתק צלצול");
+            bottomRight.setText("דחה");
+            startPulse();
+        } else {
+            started=CallStateHolder.startTime;
+            status.setText(CallStateHolder.active?"בשיחה":"מחייג...");
+            bottomLeft.setText("השתק");
+            bottomCenter.setText("רמקול");
+            bottomRight.setText("ניתוק");
+        }
+        handler.removeCallbacks(clock);
+        handler.post(clock);
     }
-    private void build(){
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setGravity(android.view.Gravity.CENTER_HORIZONTAL);root.setBackgroundColor(ColorUtil.BAR);root.setPadding(24,28,24,12);
-        name=Ui.bar(this,"",30);root.addView(name,new LinearLayout.LayoutParams(-1,58));
-        number=Ui.bar(this,"",18);number.setTextDirection(View.TEXT_DIRECTION_LTR);number.setTextColor(ColorUtil.SECONDARY);root.addView(number,new LinearLayout.LayoutParams(-1,42));
-        timer=Ui.bar(this,"00:00",36);root.addView(timer,new LinearLayout.LayoutParams(-1,70));
-        status=Ui.bar(this,"",18);status.setTextColor(ColorUtil.ACCENT);root.addView(status,new LinearLayout.LayoutParams(-1,44));
-        LinearLayout actions=new LinearLayout(this);actions.setGravity(android.view.Gravity.CENTER);
-        TextView mute=Ui.bar(this,"השתק",17),speaker=Ui.bar(this,"רמקול",17),hang=Ui.bar(this,"ניתוק",17);
-        actions.addView(mute,new LinearLayout.LayoutParams(0,64,1f));actions.addView(speaker,new LinearLayout.LayoutParams(0,64,1f));actions.addView(hang,new LinearLayout.LayoutParams(0,64,1f));root.addView(actions,new LinearLayout.LayoutParams(-1,72));
-        hint=Ui.bar(this,"CALL=ענה • ENDCALL=דחה",13);hint.setTextColor(ColorUtil.SECONDARY);root.addView(hint,new LinearLayout.LayoutParams(-1,46));
-        setContentView(root);
-        mute.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleMute();}});
-        speaker.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleSpeaker();}});
-        hang.setOnClickListener(new View.OnClickListener(){public void onClick(View v){endCall();}});
+
+    private void startPulse(){
+        if(!com.example.contacts.util.AppPrefs.bool(this,"animations",true))return;
+        avatar.animate().scaleX(1.08f).scaleY(1.08f).setDuration(450).withEndAction(new Runnable(){
+            public void run(){avatar.animate().scaleX(1f).scaleY(1f).setDuration(450).start();}
+        }).start();
+        handler.postDelayed(new Runnable(){public void run(){if(!ended&&incoming)startPulse();}},900);
     }
-    private void loadContactName(){
-        final String n=numberValue;
-        new android.os.AsyncTask<Void,Void,String>(){
-            protected String doInBackground(Void...v){return ContactsRepository.lookupName(InCallActivity.this,n);}
-            protected void onPostExecute(String s){name.setText(s!=null&&s.length()>0?s:(incoming?"מספר לא מזוהה":"שיחה יוצאת"));}
-        }.executeOnExecutor(android.os.AsyncTask.THREAD_POOL_EXECUTOR);
-    }
+
     private void updateTimer(){
         long st=started>0?started:(CallStateHolder.startTime>0?CallStateHolder.startTime:System.currentTimeMillis());
-        long sec=Math.max(0,(System.currentTimeMillis()-st)/1000);timer.setText(String.format(java.util.Locale.US,"%02d:%02d",sec/60,sec%60));
+        long sec=Math.max(0,(System.currentTimeMillis()-st)/1000);
+        timer.setText(String.format(java.util.Locale.US,"%02d:%02d",sec/60,sec%60));
     }
-    private void toggleMute(){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);CallStateHolder.isMuted=!CallStateHolder.isMuted;am.setMicrophoneMute(CallStateHolder.isMuted);status.setText(CallStateHolder.isMuted?"מושתק":"בשיחה");}
-    private void toggleSpeaker(){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);CallStateHolder.isSpeaker=!CallStateHolder.isSpeaker;am.setMode(AudioManager.MODE_IN_CALL);am.setSpeakerphoneOn(CallStateHolder.isSpeaker);status.setText(CallStateHolder.isSpeaker?"רמקול":"בשיחה");}
+
+    private void toggleMute(){
+        AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);
+        CallStateHolder.isMuted=!CallStateHolder.isMuted;
+        am.setMicrophoneMute(CallStateHolder.isMuted);
+        status.setText(CallStateHolder.isMuted?"מושתק":"בשיחה");
+    }
+
+    private void toggleSpeaker(){
+        AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);
+        CallStateHolder.isSpeaker=!CallStateHolder.isSpeaker;
+        am.setMode(AudioManager.MODE_IN_CALL);
+        am.setSpeakerphoneOn(CallStateHolder.isSpeaker);
+        status.setText(CallStateHolder.isSpeaker?"רמקול":"בשיחה");
+    }
+
     private void answer(){
         if(!CallStateHolder.active)return;
         try{
-            Intent d=new Intent(Intent.ACTION_MEDIA_BUTTON);d.putExtra(Intent.EXTRA_KEY_EVENT,new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_HEADSETHOOK));sendBroadcast(d);
-            Intent u=new Intent(Intent.ACTION_MEDIA_BUTTON);u.putExtra(Intent.EXTRA_KEY_EVENT,new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_HEADSETHOOK));sendBroadcast(u);
-            CallStateHolder.startTime=System.currentTimeMillis();started=CallStateHolder.startTime;status.setText("בשיחה");hint.setText("ENDCALL=ניתוק • 1=השתק • 2=רמקול");
-        }catch(Exception e){Toast.makeText(this,"מענה אינו נתמך ב-ROM הזה",Toast.LENGTH_SHORT).show();}
+            Intent d=new Intent(Intent.ACTION_MEDIA_BUTTON);
+            d.putExtra(Intent.EXTRA_KEY_EVENT,new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_HEADSETHOOK));
+            sendBroadcast(d);
+            Intent u=new Intent(Intent.ACTION_MEDIA_BUTTON);
+            u.putExtra(Intent.EXTRA_KEY_EVENT,new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_HEADSETHOOK));
+            sendBroadcast(u);
+            CallStateHolder.startTime=System.currentTimeMillis();
+            started=CallStateHolder.startTime;
+            status.setText("בשיחה");
+            bottomLeft.setText("השתק");
+            bottomCenter.setText("רמקול");
+            bottomRight.setText("ניתוק");
+        }catch(Exception e){Toast.makeText(this,"מענה אינו נתמך במכשיר הזה",Toast.LENGTH_SHORT).show();}
     }
+
     private void endCall(){
         try{
             android.telephony.TelephonyManager tm=(android.telephony.TelephonyManager)getSystemService(TELEPHONY_SERVICE);
-            java.lang.reflect.Method m=Class.forName(tm.getClass().getName()).getDeclaredMethod("getITelephony");m.setAccessible(true);Object t=m.invoke(tm);java.lang.reflect.Method end=t.getClass().getMethod("endCall");end.invoke(t);
-        }catch(Exception e){
-            try{Intent u=new Intent(Intent.ACTION_MEDIA_BUTTON);u.putExtra(Intent.EXTRA_KEY_EVENT,new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_HEADSETHOOK));sendBroadcast(u);}catch(Exception ignored){}
-        }
-        CallStateHolder.active=false;status.setText("השיחה הסתיימה");endedScreen=true;handler.removeCallbacks(tick);handler.postDelayed(new Runnable(){public void run(){finish();}},1500);
+            java.lang.reflect.Method m=Class.forName(tm.getClass().getName()).getDeclaredMethod("getITelephony");
+            m.setAccessible(true);
+            Object tel=m.invoke(tm);
+            tel.getClass().getMethod("endCall").invoke(tel);
+        }catch(Exception ignored){}
+        CallStateHolder.active=false;
+        ended=true;
+        status.setText("השיחה הסתיימה");
+        handler.removeCallbacks(clock);
+        handler.postDelayed(new Runnable(){public void run(){finish();}},1500);
     }
-    @Override public boolean dispatchKeyEvent(KeyEvent e){
-        int k=e.getKeyCode();if(!relevant(k))return super.dispatchKeyEvent(e);
-        if(e.getAction()==KeyEvent.ACTION_DOWN){e.startTracking();return true;}
-        if(e.getAction()==KeyEvent.ACTION_UP){
-            if(incoming&&!endedScreen&&k==KeyEvent.KEYCODE_CALL)answer();
-            else if(k==KeyEvent.KEYCODE_ENDCALL)endCall();
-            else if(k==KeyEvent.KEYCODE_BACK){return true;}
-            else if(k==KeyEvent.KEYCODE_DPAD_CENTER)toggleMute();
-            else if(k==KeyEvent.KEYCODE_DPAD_RIGHT)toggleSpeaker();
-            else if(k==KeyEvent.KEYCODE_DPAD_LEFT)endCall();
-            else if(k==KeyEvent.KEYCODE_1)toggleMute();
-            else if(k==KeyEvent.KEYCODE_2)toggleSpeaker();
-            else if(k==KeyEvent.KEYCODE_VOLUME_UP)volume(1);
-            else if(k==KeyEvent.KEYCODE_VOLUME_DOWN)volume(-1);
-            return true;
+
+    @Override protected void onKeyAction(KeyMapper.Result r,boolean down){
+        if(down)return;
+        switch(r.action){
+            case CALL:
+                if(incoming&&!ended&&CallStateHolder.startTime==0)answer();else if(ended)startDialAgain();
+                break;
+            case BACK:
+                if(ended)finish();
+                break;
+            case LEFT:
+                action=(action+2)%3;updateActionLabel();
+                break;
+            case RIGHT:
+                action=(action+1)%3;updateActionLabel();
+                break;
+            case SELECT:
+                executeAction();
+                break;
+            case DIGIT:
+                if(r.digit==1)toggleMute();else if(r.digit==2)toggleSpeaker();else if(r.digit==3)Toast.makeText(this,"מקלדת DTMF אינה זמינה ב-ROM רגיל",Toast.LENGTH_SHORT).show();
+                break;
+            case PAGE_UP:volume(1);break;
+            case PAGE_DOWN:volume(-1);break;
+            default:break;
         }
-        return true;
     }
-    private boolean relevant(int k){return k==KeyEvent.KEYCODE_CALL||k==KeyEvent.KEYCODE_ENDCALL||k==KeyEvent.KEYCODE_BACK||k==KeyEvent.KEYCODE_DPAD_CENTER||k==KeyEvent.KEYCODE_DPAD_LEFT||k==KeyEvent.KEYCODE_DPAD_RIGHT||k==KeyEvent.KEYCODE_1||k==KeyEvent.KEYCODE_2||k==KeyEvent.KEYCODE_VOLUME_UP||k==KeyEvent.KEYCODE_VOLUME_DOWN;}
+
+    private void updateActionLabel(){
+        if(ended)return;
+        bottomCenter.setText(action==0?"השתק":action==1?"רמקול":"ניתוק");
+    }
+    private void executeAction(){if(incoming&&!ended&&CallStateHolder.startTime==0){answer();return;}if(action==0)toggleMute();else if(action==1)toggleSpeaker();else endCall();}
     private void volume(int d){AudioManager am=(AudioManager)getSystemService(AUDIO_SERVICE);am.adjustStreamVolume(AudioManager.STREAM_VOICE_CALL,d>0?AudioManager.ADJUST_RAISE:AudioManager.ADJUST_LOWER,0);}
+    private void startDialAgain(){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(numberValue))));}catch(Exception ignored){}}
     @Override protected void onPause(){super.onPause();if(CallStateHolder.active&&!isFinishing())handler.postDelayed(new Runnable(){public void run(){try{startActivity(new Intent(InCallActivity.this,InCallActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));}catch(Exception ignored){}}},300);}
-    @Override protected void onDestroy(){handler.removeCallbacks(tick);super.onDestroy();}
+    @Override protected void onDestroy(){handler.removeCallbacks(clock);super.onDestroy();}
+
+    private static final class PaletteAware{
+        static android.graphics.drawable.GradientDrawable circle(android.content.Context c,int color){android.graphics.drawable.GradientDrawable g=new android.graphics.drawable.GradientDrawable();g.setShape(android.graphics.drawable.GradientDrawable.OVAL);g.setColor(color);g.setStroke(Ui.dp(c,3),Palette.accent(c));return g;}
+    }
 }
