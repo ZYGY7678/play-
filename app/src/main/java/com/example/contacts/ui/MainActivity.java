@@ -184,7 +184,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     private ArrayList<ContactModel> getFavorites(){
         ArrayList<ContactModel> f=new ArrayList<ContactModel>();
-        int max=getPreferences(0).getBoolean("huge",false)?6:12;
+        int max=getSharedPreferences("keycontacts",0).getBoolean("huge",false)?6:12;
         for(ContactModel c:allContacts)if(c.favorite&&c.number.length()>0){f.add(c);if(f.size()==max)break;}
         return f;
     }
@@ -242,7 +242,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
     @Override public void onLoaderReset(Loader<Cursor> l){}
 
     private void sortContacts(){
-        final boolean family=getPreferences(0).getBoolean("sort_family",false);
+        final boolean family=getSharedPreferences("keycontacts",0).getBoolean("sort_family",false);
         Collections.sort(allContacts,new Comparator<ContactModel>(){
             public int compare(ContactModel a,ContactModel b){
                 String aa=a.name==null?"":a.name,bb=b.name==null?"":b.name;
@@ -395,7 +395,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     private void moveSelection(int delta){
         if(tab==TAB_CONTACTS&&list!=null){
-            int n=filteredContacts.size();if(n==0)return;int p=list.getSelectedItemPosition();if(p<0)p=0;int next=p+delta;boolean circ=getPreferences(0).getBoolean("circular",false);
+            int n=filteredContacts.size();if(n==0)return;int p=list.getSelectedItemPosition();if(p<0)p=0;int next=p+delta;boolean circ=getSharedPreferences("keycontacts",0).getBoolean("circular",false);
             if(next<0)next=circ?n-1:0;if(next>=n)next=circ?0:n-1;list.setSelectionFromTop(next,Math.max(0,list.getHeight()/2-36));contactAdapter.actionMode=0;list.invalidateViews();return;
         }
         if(tab==TAB_RECENTS&&list!=null&&callEntries.size()>0){int n=callEntries.size(),p=Math.max(0,list.getSelectedItemPosition());int next=Math.max(0,Math.min(n-1,p+delta));list.setSelectionFromTop(next,Math.max(0,list.getHeight()/2-36));}
@@ -435,14 +435,14 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     private void longDigit(int d){
         if(d==0){if(tab==TAB_DIAL){dialDigits+="+";redrawDial();}return;}
-        if(d==1){String v=getPreferences(0).getString("voicemail","*86");call(v);return;}
+        if(d==1){String v=getSharedPreferences("keycontacts",0).getString("voicemail","*86");call(v);return;}
         if(d>=2&&d<=9){
-            String v=getPreferences(0).getString("speed_"+d,"");
+            String v=getSharedPreferences("keycontacts",0).getString("speed_"+d,"");
             if(v.length()>0)call(v);else Toast.makeText(this,"חיוג מהיר "+d+" לא הוגדר",Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void longStar(){hebrewT9=!hebrewT9;getPreferences(0).edit().putBoolean("t9_hebrew",hebrewT9).apply();applyFilter(searchDigits);Toast.makeText(this,hebrewT9?"T9 עברית":"T9 אנגלית",Toast.LENGTH_SHORT).show();}
+    private void longStar(){hebrewT9=!hebrewT9;getSharedPreferences("keycontacts",0).edit().putBoolean("t9_hebrew",hebrewT9).apply();applyFilter(searchDigits);Toast.makeText(this,hebrewT9?"T9 עברית":"T9 אנגלית",Toast.LENGTH_SHORT).show();}
     private void longPound(){android.media.AudioManager am=(android.media.AudioManager)getSystemService(AUDIO_SERVICE);int m=am.getRingerMode();am.setRingerMode(m==android.media.AudioManager.RINGER_MODE_SILENT?android.media.AudioManager.RINGER_MODE_NORMAL:android.media.AudioManager.RINGER_MODE_SILENT);}
 
     @Override public boolean dispatchKeyEvent(KeyEvent e){
