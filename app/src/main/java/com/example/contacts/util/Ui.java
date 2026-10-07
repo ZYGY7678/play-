@@ -23,6 +23,7 @@ import android.widget.TextView;
 public final class Ui {
     private Ui() {}
 
+    // ---------------------------------------------------------------- units
     public static int dp(Context c, int v) {
         return (int) (v * c.getResources().getDisplayMetrics().density + 0.5f);
     }
@@ -31,6 +32,7 @@ public final class Ui {
         return c.getResources().getDimensionPixelSize(resId);
     }
 
+    // ----------------------------------------------------------------- text
     public static TextView text(Context c, String s, float sp, int color) {
         TextView t = new TextView(c);
         t.setText(s);
@@ -51,6 +53,7 @@ public final class Ui {
         return t;
     }
 
+    /** Big two-line empty state: bold title + secondary sub line. */
     public static TextView empty(Context c, String title, String sub) {
         SpannableStringBuilder sb = new SpannableStringBuilder(title);
         sb.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -63,6 +66,7 @@ public final class Ui {
         return t;
     }
 
+    // ------------------------------------------------------------ drawables
     public static GradientDrawable rounded(int color, int strokeColor, int stroke, int radiusDp, Context c) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(color);
@@ -78,6 +82,7 @@ public final class Ui {
         return g;
     }
 
+    /** Card background used by list rows: surface + hairline, accent tint when focused/selected. */
     public static StateListDrawable rowStates(Context c, int insetDp) {
         int a = Palette.accent(c);
         GradientDrawable normal = rounded(Palette.row(c), Palette.divider(c), 1, 12, c);
@@ -92,6 +97,7 @@ public final class Ui {
         return s;
     }
 
+    /** Transparent key/chip background that fills when focused. solid=true uses the full accent. */
     public static StateListDrawable keyStates(Context c, int radiusDp, int insetDp, boolean solid) {
         int a = Palette.accent(c);
         GradientDrawable normal = rounded(Color.TRANSPARENT, 0, 0, radiusDp, c);
@@ -106,6 +112,7 @@ public final class Ui {
         return s;
     }
 
+    /** Focusable centered label (used for compact buttons in dialogs). */
     public static TextView bar(Context c, String s, float sp) {
         TextView t = center(c, s, sp * Palette.scale(c), Palette.text(c));
         t.setFocusable(true);
@@ -115,6 +122,7 @@ public final class Ui {
         return t;
     }
 
+    /** Pill-shaped focusable chip with a visible resting state. */
     public static TextView chip(Context c, String s, float sp) {
         TextView t = center(c, s, sp * Palette.scale(c), Palette.text(c));
         t.setFocusable(true);
@@ -140,6 +148,7 @@ public final class Ui {
         return new LinearLayout.LayoutParams(dp(c, dp), -1);
     }
 
+    /** Layout params with dp margins, e.g. lp(c,-1,52,0,8,0,0). */
     public static LinearLayout.LayoutParams lp(Context c, int w, int h, int l, int t, int r, int b) {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
                 w > 0 ? dp(c, w) : w, h > 0 ? dp(c, h) : h);
@@ -154,6 +163,8 @@ public final class Ui {
         return n.substring(0, 1).toUpperCase(java.util.Locale.getDefault());
     }
 
+    // -------------------------------------------------------------- dialogs
+    /** Frameless dialog with a transparent window so our own card shows through. */
     public static Dialog dialog(Context c) {
         Dialog d = new Dialog(c);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -161,6 +172,7 @@ public final class Ui {
         return d;
     }
 
+    /** Rounded card with a centered title – content is added below it. */
     public static LinearLayout panel(Context c, String title) {
         LinearLayout r = new LinearLayout(c);
         r.setOrientation(LinearLayout.VERTICAL);
