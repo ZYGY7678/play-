@@ -18,14 +18,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.widget.Toast;
 
 import com.example.contacts.util.Palette;
 import com.example.contacts.util.AppPrefs;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.util.Ui;
+import com.example.contacts.widget.AvatarView;
 import com.example.contacts.widget.FocusableRow;
+import com.example.contacts.widget.IconView;
+import com.example.contacts.widget.SoftKeyBar;
 
 import java.util.ArrayList;
 
@@ -35,11 +39,25 @@ public class ContactDetailActivity extends BaseKeyActivity {
  private static class Field{int kind;String label,value;Field(int k,String l,String v){kind=k;label=l;value=v;}}
  private void load(){Cursor c=null;try{c=getContentResolver().query(ContactsContract.Data.CONTENT_URI,new String[]{ContactsContract.Data.MIMETYPE,ContactsContract.Data.DATA1,ContactsContract.Data.DATA2},ContactsContract.Data.CONTACT_ID+"=?",new String[]{String.valueOf(id)},null);if(c!=null)while(c.moveToNext()){String m=c.getString(0),v=c.getString(1);if(v==null||v.length()==0)continue;int t=c.isNull(2)?0:c.getInt(2);if(ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE.equals(m))fields.add(new Field(1,ContactsContract.CommonDataKinds.Phone.getTypeLabel(getResources(),t,"טלפון").toString(),v));else if(ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE.equals(m))fields.add(new Field(2,"אימייל",v));else if(ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE.equals(m))fields.add(new Field(3,"כתובת",v));else if(ContactsContract.CommonDataKinds.Note.CONTENT_ITEM_TYPE.equals(m))fields.add(new Field(4,"הערה",v));else if(ContactsContract.CommonDataKinds.Event.CONTENT_ITEM_TYPE.equals(m)&&t==ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY)fields.add(new Field(5,"יום הולדת",v));}}finally{if(c!=null)c.close();}if(fields.size()==0)fields.add(new Field(0,"אין פרטים נוספים",""));}
  private void build(){LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Palette.bg(this));
-  LinearLayout head=new LinearLayout(this);head.setPadding(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,8));head.setGravity(Gravity.CENTER_VERTICAL);TextView av=txt(contactName.length()>0?contactName.substring(0,1):"?",32,Palette.text(this));av.setGravity(Gravity.CENTER);GradientDrawable avatarBg=new GradientDrawable();avatarBg.setShape(GradientDrawable.OVAL);avatarBg.setColor(0xff3b6178);avatarBg.setStroke(Ui.dp(this,3),Palette.accent(this));av.setBackground(avatarBg);head.addView(av,new LinearLayout.LayoutParams(Ui.dp(this,100),Ui.dp(this,100)));TextView n=txt(contactName.length()>0?contactName:"ללא שם",26,Palette.text(this));n.setTypeface(Typeface.DEFAULT,Typeface.BOLD);n.setPadding(Ui.dp(this,18),0,0,0);head.addView(n,new LinearLayout.LayoutParams(0,Ui.dp(this,100),1));root.addView(head,new LinearLayout.LayoutParams(-1,Ui.dp(this,116)));
-  list=new ListView(this);list.setDivider(null);list.setSelector(com.example.contacts.R.drawable.row_selector);list.setDrawSelectorOnTop(false);list.setItemsCanFocus(true);list.setAdapter(new Adapter());root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout bot=new LinearLayout(this);bot.setBackgroundColor(Palette.bar(this));bot.addView(txt("ערוך",15,Palette.text(this)),new LinearLayout.LayoutParams(0,Ui.dp(this,50),1));bot.addView(txt("OK",15,Palette.text(this)),new LinearLayout.LayoutParams(0,Ui.dp(this,50),1));bot.addView(txt("אפשרויות",15,Palette.text(this)),new LinearLayout.LayoutParams(0,Ui.dp(this,50),1));root.addView(bot,new LinearLayout.LayoutParams(-1,Ui.dp(this,50)));setContentView(root);list.requestFocus();list.setSelection(0);}
- private TextView txt(String s,float sp,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);return t;}
- private class Adapter extends BaseAdapter{public int getCount(){return fields.size();}public Object getItem(int p){return fields.get(p);}public long getItemId(int p){return p;}public View getView(int p,View v,ViewGroup parent){Field f=fields.get(p);FocusableRow r=new FocusableRow(ContactDetailActivity.this);LinearLayout box=new LinearLayout(ContactDetailActivity.this);box.setOrientation(LinearLayout.VERTICAL);TextView a=txt(f.label,14,Palette.secondary(ContactDetailActivity.this));TextView b=txt(f.kind==1?PhoneFormatter.ltr(PhoneFormatter.format(f.value)):f.value,18,Palette.text(ContactDetailActivity.this));if(f.kind==1)b.setTextDirection(View.TEXT_DIRECTION_LTR);box.addView(a,new LinearLayout.LayoutParams(-1,Ui.dp(ContactDetailActivity.this,30)));box.addView(b,new LinearLayout.LayoutParams(-1,Ui.dp(ContactDetailActivity.this,42)));r.addView(box,new LinearLayout.LayoutParams(0,Ui.dp(ContactDetailActivity.this,72),1));TextView hint=txt(f.kind==1?"☎  SMS  COPY":"",12,f.kind==1?Palette.accent(ContactDetailActivity.this):Palette.secondary(ContactDetailActivity.this));hint.setGravity(Gravity.CENTER);r.addView(hint,new LinearLayout.LayoutParams(Ui.dp(ContactDetailActivity.this,110),Ui.dp(ContactDetailActivity.this,72)));return r;}}
+  LinearLayout head=new LinearLayout(this);head.setOrientation(LinearLayout.VERTICAL);head.setGravity(Gravity.CENTER_HORIZONTAL);head.setBackgroundColor(Palette.bar(this));head.setPadding(Ui.dp(this,16),Ui.dp(this,12),Ui.dp(this,16),Ui.dp(this,10));
+  AvatarView av=new AvatarView(this);av.setName(contactName);av.setRing(true);int big=Ui.dim(this,com.example.contacts.R.dimen.avatar_hero);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(big,big);ap.gravity=Gravity.CENTER_HORIZONTAL;head.addView(av,ap);
+  TextView n=txt(contactName.length()>0?contactName:"ללא שם",24,Palette.text(this));n.setTypeface(Typeface.DEFAULT,Typeface.BOLD);n.setGravity(Gravity.CENTER);n.setSingleLine(true);n.setEllipsize(android.text.TextUtils.TruncateAt.END);n.setPadding(0,Ui.dp(this,8),0,0);head.addView(n,new LinearLayout.LayoutParams(-1,-2));
+  String first=firstPhone();if(first.length()>0){TextView sub=txt(PhoneFormatter.ltr(PhoneFormatter.format(first)),15,Palette.secondary(this));sub.setGravity(Gravity.CENTER);head.addView(sub,new LinearLayout.LayoutParams(-1,-2));}
+  root.addView(head,new LinearLayout.LayoutParams(-1,-2));root.addView(Ui.divider(this,Palette.divider(this),1));
+  list=new ListView(this);list.setDivider(null);list.setSelector(new ColorDrawable(Color.TRANSPARENT));list.setDrawSelectorOnTop(false);list.setItemsCanFocus(true);list.setVerticalScrollBarEnabled(false);list.setPadding(Ui.dp(this,8),Ui.dp(this,6),Ui.dp(this,8),0);list.setClipToPadding(false);list.setAdapter(new Adapter());root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+  SoftKeyBar sk=new SoftKeyBar(this,"ערוך","OK","אפשרויות");
+  sk.left.setOnClickListener(new View.OnClickListener(){public void onClick(View v){edit();}});sk.center.setOnClickListener(new View.OnClickListener(){public void onClick(View v){callCurrent();}});sk.right.setOnClickListener(new View.OnClickListener(){public void onClick(View v){options();}});
+  root.addView(sk,new LinearLayout.LayoutParams(-1,-2));setContentView(root);list.requestFocus();list.setSelection(0);}
+ private TextView txt(String s,float sp,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL|Gravity.START);return t;}
+ private IconView icon(int type){IconView i=new IconView(this);i.setType(type);return i;}
+ private class Adapter extends BaseAdapter{public int getCount(){return fields.size();}public Object getItem(int p){return fields.get(p);}public long getItemId(int p){return p;}
+  public View getView(int p,View v,ViewGroup parent){Field f=fields.get(p);FocusableRow r=new FocusableRow(ContactDetailActivity.this);
+   LinearLayout box=new LinearLayout(ContactDetailActivity.this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER_VERTICAL);
+   if(f.kind==0){box.addView(txt(f.label,16,Palette.secondary(ContactDetailActivity.this)),new LinearLayout.LayoutParams(-1,-2));}
+   else{TextView a=txt(f.label,13,Palette.secondary(ContactDetailActivity.this));TextView b=txt(f.kind==1?PhoneFormatter.ltr(PhoneFormatter.format(f.value)):f.value,18,Palette.text(ContactDetailActivity.this));if(f.kind==1)b.setTextDirection(View.TEXT_DIRECTION_LTR);box.addView(a,new LinearLayout.LayoutParams(-1,-2));box.addView(b,new LinearLayout.LayoutParams(-1,-2));}
+   r.addView(box,new LinearLayout.LayoutParams(0,-2,1));
+   if(f.kind==1){int s=Ui.dp(ContactDetailActivity.this,28);r.addView(icon(IconView.CALL),new LinearLayout.LayoutParams(s,s));r.addView(icon(IconView.SMS),new LinearLayout.LayoutParams(s,s));r.addView(icon(IconView.COPY),new LinearLayout.LayoutParams(s,s));}
+   return r;}}
  private Field current(){if(fields.size()==0)return null;return fields.get(Math.max(0,Math.min(selected,fields.size()-1)));}
  private void callCurrent(){Field f=current();if(f!=null&&f.kind==1)call(f.value);}
  private void call(String n){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(n))));}catch(Exception e){Toast.makeText(this,"חיוג לא זמין",Toast.LENGTH_SHORT).show();}}
