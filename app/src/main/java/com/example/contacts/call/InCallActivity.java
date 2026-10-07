@@ -15,10 +15,13 @@ import android.widget.Toast;
 import com.example.contacts.data.ContactsRepository;
 import com.example.contacts.keys.KeyMapper;
 import com.example.contacts.ui.BaseKeyActivity;
+import com.example.contacts.util.ColorUtil;
 import com.example.contacts.util.Palette;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.util.Ui;
+import com.example.contacts.widget.AvatarView;
 import com.example.contacts.widget.FocusableRow;
+import com.example.contacts.widget.SoftKeyBar;
 
 public class InCallActivity extends BaseKeyActivity {
     private TextView name, number, timer, status, bottomLeft, bottomCenter, bottomRight;
@@ -50,37 +53,42 @@ public class InCallActivity extends BaseKeyActivity {
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Palette.bar(this));
-        root.setPadding(Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,18),Ui.dp(this,8));
+        root.setPadding(Ui.dp(this,16),Ui.dp(this,12),Ui.dp(this,16),0);
 
         LinearLayout top=new LinearLayout(this);
         top.setGravity(Gravity.CENTER_HORIZONTAL);
         top.setOrientation(LinearLayout.VERTICAL);
 
         TextView kind=Ui.center(this,"שיחה",13,Palette.secondary(this));
-        top.addView(kind,new LinearLayout.LayoutParams(-1,Ui.dp(this,26)));
+        top.addView(kind,new LinearLayout.LayoutParams(-1,Ui.dp(this,24)));
 
-        TextView av=new TextView(this);
+        AvatarView av=new AvatarView(this);
         avatar=av;
-        av.setText("?");
-        av.setTextSize(34);
-        av.setTextColor(Palette.text(this));
-        av.setGravity(Gravity.CENTER);
-        av.setBackground(PaletteAware.circle(this,0xff3b6178));
-        top.addView(av,new LinearLayout.LayoutParams(Ui.dp(this,118),Ui.dp(this,118)));
+        av.setRing(true);
+        LinearLayout.LayoutParams avp=new LinearLayout.LayoutParams(Ui.dp(this,108),Ui.dp(this,108));
+        avp.gravity=Gravity.CENTER_HORIZONTAL;
+        avp.topMargin=Ui.dp(this,4);
+        top.addView(av,avp);
 
-        name=Ui.center(this,"",30,Palette.text(this));
+        name=Ui.center(this,"",28,Palette.text(this));
         name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        top.addView(name,new LinearLayout.LayoutParams(-1,Ui.dp(this,54)));
+        name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        top.addView(name,new LinearLayout.LayoutParams(-1,Ui.dp(this,48)));
 
-        number=Ui.center(this,"",18,Palette.secondary(this));
+        number=Ui.center(this,"",17,Palette.secondary(this));
         number.setTextDirection(View.TEXT_DIRECTION_LTR);
-        top.addView(number,new LinearLayout.LayoutParams(-1,Ui.dp(this,38)));
+        top.addView(number,new LinearLayout.LayoutParams(-1,Ui.dp(this,30)));
 
-        timer=Ui.center(this,"00:00",36,Palette.text(this));
-        top.addView(timer,new LinearLayout.LayoutParams(-1,Ui.dp(this,62)));
+        timer=Ui.center(this,"00:00",34,Palette.text(this));
+        top.addView(timer,new LinearLayout.LayoutParams(-1,Ui.dp(this,56)));
 
-        status=Ui.center(this,"",18,Palette.accent(this));
-        top.addView(status,new LinearLayout.LayoutParams(-1,Ui.dp(this,38)));
+        status=Ui.center(this,"",16,Palette.accent(this));
+        status.setBackground(Ui.rounded(ColorUtil.alpha(Palette.accent(this),36),0,0,16,this));
+        status.setPadding(Ui.dp(this,18),0,Ui.dp(this,18),0);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-2,Ui.dp(this,32));
+        sp.gravity=Gravity.CENTER_HORIZONTAL;
+        top.addView(status,sp);
 
         root.addView(top,new LinearLayout.LayoutParams(-1,0,1));
 
@@ -88,34 +96,41 @@ public class InCallActivity extends BaseKeyActivity {
         actions.setGravity(Gravity.CENTER);
         FocusableRow a=new FocusableRow(this);
         a.setGravity(Gravity.CENTER);
-        a.addView(Ui.center(this,"השתק",16,Palette.text(this)),new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
+        a.addView(Ui.bold(Ui.center(this,"השתק",16,Palette.text(this))),new LinearLayout.LayoutParams(-1,-2));
         FocusableRow s=new FocusableRow(this);
         s.setGravity(Gravity.CENTER);
-        s.addView(Ui.center(this,"רמקול",16,Palette.text(this)),new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
+        s.addView(Ui.bold(Ui.center(this,"רמקול",16,Palette.text(this))),new LinearLayout.LayoutParams(-1,-2));
         FocusableRow h=new FocusableRow(this);
         h.setGravity(Gravity.CENTER);
-        TextView hang=Ui.center(this,"ניתוק",16,Palette.text(this));
-        hang.setTextColor(Palette.RED);
-        h.addView(hang,new LinearLayout.LayoutParams(-1,Ui.dp(this,60)));
-        actions.addView(a,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
-        actions.addView(s,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
-        actions.addView(h,new LinearLayout.LayoutParams(0,Ui.dp(this,70),1));
-        root.addView(actions,new LinearLayout.LayoutParams(-1,Ui.dp(this,74)));
+        TextView hang=Ui.bold(Ui.center(this,"ניתוק",16,Palette.RED));
+        h.addView(hang,new LinearLayout.LayoutParams(-1,-2));
+        actions.addView(a,new LinearLayout.LayoutParams(0,-2,1));
+        actions.addView(s,new LinearLayout.LayoutParams(0,-2,1));
+        actions.addView(h,new LinearLayout.LayoutParams(0,-2,1));
+        root.addView(actions,new LinearLayout.LayoutParams(-1,-2));
 
-        LinearLayout soft=new LinearLayout(this);
-        soft.setBackgroundColor(Palette.bar(this));
-        bottomLeft=Ui.center(this,"ענה",14,Palette.GREEN);
-        bottomCenter=Ui.center(this,"השתק",14,Palette.text(this));
-        bottomRight=Ui.center(this,"דחה",14,Palette.RED);
-        soft.addView(bottomLeft,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
-        soft.addView(bottomCenter,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
-        soft.addView(bottomRight,new LinearLayout.LayoutParams(0,Ui.dp(this,44),1));
-        root.addView(soft,new LinearLayout.LayoutParams(-1,Ui.dp(this,48)));
+        SoftKeyBar soft=new SoftKeyBar(this,"ענה","השתק","דחה");
+        bottomLeft=soft.left;
+        bottomCenter=soft.center;
+        bottomRight=soft.right;
+        bottomRight.setNormalColor(Palette.RED);
+        // soft bar spans the full width, so cancel the root's side padding
+        LinearLayout.LayoutParams sbp=new LinearLayout.LayoutParams(-1,-2);
+        sbp.setMargins(-Ui.dp(this,16),0,-Ui.dp(this,16),0);
+        root.addView(soft,sbp);
 
         setContentView(root);
+        softColors(true);
         a.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleMute();}});
         s.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggleSpeaker();}});
         h.setOnClickListener(new View.OnClickListener(){public void onClick(View v){endCall();}});
+    }
+
+    /** Left soft key is green only while the phone is ringing (it is "answer"). */
+    private void softColors(boolean ringing){
+        bottomLeft.setNormalColor(ringing?Palette.GREEN:Palette.text(this));
+        bottomCenter.setNormalColor(Palette.text(this));
+        bottomRight.setNormalColor(Palette.RED);
     }
 
     private void apply(Intent i){
@@ -129,7 +144,7 @@ public class InCallActivity extends BaseKeyActivity {
         name.setText(incoming?"מספר לא ידוע":"שיחה יוצאת");
         new android.os.AsyncTask<Void,Void,String>() {
             protected String doInBackground(Void... v){return ContactsRepository.lookupName(InCallActivity.this,numberValue);}
-            protected void onPostExecute(String who){if(who!=null&&who.length()>0){name.setText(who);((TextView)avatar).setText(who.substring(0,1));}}
+            protected void onPostExecute(String who){if(who!=null&&who.length()>0){name.setText(who);((AvatarView)avatar).setName(who);}}
         }.executeOnExecutor(android.os.AsyncTask.THREAD_POOL_EXECUTOR);
         if(ended){
             status.setText("השיחה הסתיימה");
@@ -151,6 +166,7 @@ public class InCallActivity extends BaseKeyActivity {
             bottomCenter.setText("רמקול");
             bottomRight.setText("ניתוק");
         }
+        softColors(!ended&&incoming&&CallStateHolder.startTime==0);
         handler.removeCallbacks(clock);
         handler.post(clock);
     }
@@ -199,6 +215,7 @@ public class InCallActivity extends BaseKeyActivity {
             bottomLeft.setText("השתק");
             bottomCenter.setText("רמקול");
             bottomRight.setText("ניתוק");
+            softColors(false);
         }catch(Exception e){Toast.makeText(this,"מענה אינו נתמך במכשיר הזה",Toast.LENGTH_SHORT).show();}
     }
 
@@ -270,8 +287,4 @@ public class InCallActivity extends BaseKeyActivity {
     private void startDialAgain(){try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+Uri.encode(numberValue))));}catch(Exception ignored){}}
     @Override protected void onPause(){super.onPause();if(CallStateHolder.active&&!isFinishing())handler.postDelayed(new Runnable(){public void run(){try{startActivity(new Intent(InCallActivity.this,InCallActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));}catch(Exception ignored){}}},300);}
     @Override protected void onDestroy(){handler.removeCallbacks(clock);super.onDestroy();}
-
-    private static final class PaletteAware{
-        static android.graphics.drawable.GradientDrawable circle(android.content.Context c,int color){android.graphics.drawable.GradientDrawable g=new android.graphics.drawable.GradientDrawable();g.setShape(android.graphics.drawable.GradientDrawable.OVAL);g.setColor(color);g.setStroke(Ui.dp(c,3),Palette.accent(c));return g;}
-    }
 }
