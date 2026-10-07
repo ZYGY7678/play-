@@ -19,16 +19,22 @@ import com.example.contacts.data.ContactModel;
 import com.example.contacts.data.ContactTools;
 import com.example.contacts.data.ContactsRepository;
 import com.example.contacts.keys.KeyMapper;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import com.example.contacts.util.AppPrefs;
+import com.example.contacts.util.ColorUtil;
 import com.example.contacts.util.CodeDialog;
 import com.example.contacts.util.Palette;
 import com.example.contacts.util.Ui;
 import com.example.contacts.widget.FocusableRow;
+import com.example.contacts.widget.ScreenHeader;
+import com.example.contacts.widget.SoftKeyBar;
 
 import java.util.ArrayList;
 
 public class SettingsActivity extends BaseKeyActivity {
     private final ArrayList<String> labels = new ArrayList<String>();
+    private final ArrayList<String> values = new ArrayList<String>();
     private ListView list;
     private int selected = 0;
     private static final int PICK_VCARD = 900;
@@ -39,42 +45,63 @@ public class SettingsActivity extends BaseKeyActivity {
         build();
     }
 
+    private void add(String title, String value) { labels.add(title); values.add(value); }
+
     private void buildLabels() {
         labels.clear();
-        labels.add("מקשי תפריט: " + (AppPrefs.bool(this,"soft_compat",false) ? "MENU/BACK" : "SOFT LEFT/RIGHT"));
-        labels.add("T9: " + (AppPrefs.bool(this,"t9_hebrew",true) ? "עברית" : "English"));
-        labels.add("מיון: " + (AppPrefs.bool(this,"sort_family",false) ? "משפחה" : "שם"));
-        labels.add("תצוגת שם: " + (AppPrefs.bool(this,"family_first",false) ? "משפחה, פרטי" : "פרטי, משפחה"));
-        labels.add("גודל גופן: " + AppPrefs.str(this,"font_size","רגיל"));
-        labels.add("ערכת צבעים: " + AppPrefs.str(this,"theme","כהה"));
-        labels.add("רטט: " + (AppPrefs.bool(this,"vibrate",true) ? "פעיל" : "כבוי"));
-        labels.add("צלילי ניווט: " + (AppPrefs.bool(this,"sounds",true) ? "פעילים" : "כבויים"));
-        labels.add("גלישה מעגלית: " + (AppPrefs.bool(this,"circular",false) ? "פעילה" : "כבויה"));
-        labels.add("Volume = עמוד: " + (AppPrefs.bool(this,"volume_page",true) ? "כן" : "לא"));
-        labels.add("אנימציות: " + (AppPrefs.bool(this,"animations",true) ? "פעילות" : "כבויות"));
-        labels.add("מצב ילדים / נעילה: " + (AppPrefs.bool(this,"kids_lock",false) ? "מופעל" : "כבוי"));
-        for(int d=2;d<=9;d++) labels.add("חיוג מהיר "+d+": "+AppPrefs.str(this,"speed_"+d,"לא הוגדר"));
-        labels.add("גיבוי אנשי קשר ל-vCard");
-        labels.add("ייבוא vCard");
-        labels.add("איחוד כפילויות לפי מספר");
-        labels.add("OK במועדפים: " + (AppPrefs.bool(this,"favorite_ok_detail",false) ? "פרטים" : "חיוג"));
+        values.clear();
+        add("מקשי תפריט", AppPrefs.bool(this,"soft_compat",false) ? "MENU/BACK" : "SOFT LEFT/RIGHT");
+        add("T9", AppPrefs.bool(this,"t9_hebrew",true) ? "עברית" : "English");
+        add("מיון", AppPrefs.bool(this,"sort_family",false) ? "משפחה" : "שם");
+        add("תצוגת שם", AppPrefs.bool(this,"family_first",false) ? "משפחה, פרטי" : "פרטי, משפחה");
+        add("גודל גופן", AppPrefs.str(this,"font_size","רגיל"));
+        add("ערכת צבעים", AppPrefs.str(this,"theme","כהה"));
+        add("רטט", AppPrefs.bool(this,"vibrate",true) ? "פעיל" : "כבוי");
+        add("צלילי ניווט", AppPrefs.bool(this,"sounds",true) ? "פעילים" : "כבויים");
+        add("גלישה מעגלית", AppPrefs.bool(this,"circular",false) ? "פעילה" : "כבויה");
+        add("Volume = עמוד", AppPrefs.bool(this,"volume_page",true) ? "כן" : "לא");
+        add("אנימציות", AppPrefs.bool(this,"animations",true) ? "פעילות" : "כבויות");
+        add("מצב ילדים / נעילה", AppPrefs.bool(this,"kids_lock",false) ? "מופעל" : "כבוי");
+        for(int d=2;d<=9;d++) add("חיוג מהיר "+d, AppPrefs.str(this,"speed_"+d,"לא הוגדר"));
+        add("גיבוי אנשי קשר ל-vCard", "");
+        add("ייבוא vCard", "");
+        add("איחוד כפילויות לפי מספר", "");
+        add("OK במועדפים", AppPrefs.bool(this,"favorite_ok_detail",false) ? "פרטים" : "חיוג");
     }
 
     private TextView txt(String s,float sp) {
         TextView t=new TextView(this);
         t.setText(s);t.setTextSize(sp*Palette.scale(this));t.setTextColor(Palette.text(this));
-        t.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);return t;
+        t.setGravity(Gravity.CENTER_VERTICAL|Gravity.START);return t;
     }
 
     private void build() {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Palette.bg(this));
-        TextView title=txt("הגדרות",23);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,Ui.dp(this,56)));
-        list=new ListView(this);list.setDivider(null);list.setSelector(R.drawable.row_selector);list.setItemsCanFocus(true);
+        root.addView(new ScreenHeader(this,"הגדרות"),new LinearLayout.LayoutParams(-1,-2));
+        list=new ListView(this);list.setDivider(null);list.setSelector(new ColorDrawable(Color.TRANSPARENT));list.setItemsCanFocus(true);list.setVerticalScrollBarEnabled(false);
+        list.setPadding(Ui.dp(this,8),Ui.dp(this,6),Ui.dp(this,8),Ui.dp(this,6));list.setClipToPadding(false);
         list.setAdapter(new BaseAdapter(){
             public int getCount(){return labels.size();}public Object getItem(int p){return labels.get(p);}public long getItemId(int p){return p;}
-            public View getView(int p,View v,ViewGroup parent){FocusableRow r=new FocusableRow(SettingsActivity.this);r.addView(txt((p+1)+"   "+labels.get(p),17),new LinearLayout.LayoutParams(-1,Ui.dp(SettingsActivity.this,72)));return r;}
+            public View getView(int p,View v,ViewGroup parent){
+                SettingsActivity c=SettingsActivity.this;
+                FocusableRow r=new FocusableRow(c);r.setMinimumHeight(Ui.dp(c,58));
+                TextView title=txt(labels.get(p),16);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                r.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+                String val=values.get(p);
+                TextView chip=Ui.center(c,val.length()>0?val:"›",val.length()>0?14*Palette.scale(c):20,Palette.accent(c));
+                Ui.bold(chip);chip.setSingleLine(true);
+                if(val.length()>0){chip.setBackground(Ui.rounded(ColorUtil.alpha(Palette.accent(c),38),0,0,14,c));chip.setPadding(Ui.dp(c,12),Ui.dp(c,4),Ui.dp(c,12),Ui.dp(c,4));}
+                LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,-2);cp.setMargins(Ui.dp(c,8),0,0,0);
+                r.addView(chip,cp);
+                return r;
+            }
         });
-        root.addView(list,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);list.requestFocus();list.setSelection(selected);
+        root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        SoftKeyBar sk=new SoftKeyBar(this,"","שינוי","חזרה");sk.left.setVisibility(View.INVISIBLE);
+        sk.center.setOnClickListener(new View.OnClickListener(){public void onClick(View v){toggle(selected);}});
+        sk.right.setOnClickListener(new View.OnClickListener(){public void onClick(View v){finish();}});
+        root.addView(sk,new LinearLayout.LayoutParams(-1,-2));
+        setContentView(root);list.requestFocus();list.setSelection(selected);
     }
 
     private void toggle(int p) {
@@ -147,6 +174,7 @@ public class SettingsActivity extends BaseKeyActivity {
             case DOWN:selected=Math.min(labels.size()-1,selected+1);break;
             case SELECT:toggle(selected);return;
             case BACK:finish();return;
+            case SOFT_RIGHT:finish();return;
             default:return;
         }
         list.setSelection(selected);list.requestFocus();
