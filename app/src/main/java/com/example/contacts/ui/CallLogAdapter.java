@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.example.contacts.data.CallLogRepository;
+import com.example.contacts.util.ColorUtil;
 import com.example.contacts.util.Palette;
 import com.example.contacts.util.PhoneFormatter;
 import com.example.contacts.util.TimeUtil;
@@ -32,19 +33,36 @@ public class CallLogAdapter extends BaseAdapter {
     public View getView(int p,View v,ViewGroup parent){
         FocusableRow r=v instanceof FocusableRow?(FocusableRow)v:new FocusableRow(c);
         Holder h=r.getTag() instanceof Holder?(Holder)r.getTag():new Holder(c);
-        if(r.getTag()==null){r.setTag(h);r.addView(h.icon,new LinearLayout.LayoutParams(Ui.dp(c,42),-1));r.addView(h.box,new LinearLayout.LayoutParams(0,-1,1));r.addView(h.time,new LinearLayout.LayoutParams(Ui.dp(c,95),-1));}
+        if(r.getTag()==null){
+            r.setTag(h);
+            r.addView(h.icon,new LinearLayout.LayoutParams(Ui.dp(c,34),Ui.dp(c,34)));
+            LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,-2,1);
+            bp.setMargins(Ui.dp(c,10),0,Ui.dp(c,8),0);
+            r.addView(h.box,bp);
+            r.addView(h.time,new LinearLayout.LayoutParams(Ui.dp(c,78),-2));
+        }
         CallLogRepository.Entry e=d.get(p);
-        int icon=e.type==CallLog.Calls.MISSED_TYPE?IconView.MISSED:(e.type==CallLog.Calls.INCOMING_TYPE?IconView.IN:IconView.OUT);
+        boolean missed=e.type==CallLog.Calls.MISSED_TYPE;
+        int icon=missed?IconView.MISSED:(e.type==CallLog.Calls.INCOMING_TYPE?IconView.IN:IconView.OUT);
         h.icon.setType(icon);
+        h.icon.setBackground(Ui.rounded(ColorUtil.alpha(missed?Palette.RED:Palette.accent(c),34),0,0,17,c));
         h.name.setText(e.name.length()>0?e.name:"לא מזוהה");
-        h.name.setTextSize(18*Palette.scale(c));h.name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);h.name.setTextColor(Palette.text(c));h.name.setSingleLine(true);h.name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        h.name.setTextSize(18*Palette.scale(c));h.name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        h.name.setTextColor(missed?Palette.RED:Palette.text(c));
+        h.name.setSingleLine(true);h.name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         h.num.setText((e.count>1?e.count+" × ":"")+PhoneFormatter.ltr(PhoneFormatter.format(e.number)));
-        h.num.setTextSize(14*Palette.scale(c));h.num.setTextColor(Palette.secondary(c));h.num.setSingleLine(true);
-        h.time.setText(TimeUtil.relative(e.date));h.time.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);h.time.setTextColor(Palette.secondary(c));h.time.setTextSize(13);
+        h.num.setTextSize(13*Palette.scale(c));h.num.setTextColor(Palette.secondary(c));h.num.setSingleLine(true);
+        h.time.setText(TimeUtil.relative(e.date));h.time.setGravity(Gravity.CENTER_VERTICAL|Gravity.END);
+        h.time.setTextColor(Palette.secondary(c));h.time.setTextSize(12*Palette.scale(c));
         return r;
     }
     static class Holder{
         IconView icon;TextView name,num,time;LinearLayout box;
-        Holder(Context c){icon=new IconView(c);name=new TextView(c);num=new TextView(c);time=new TextView(c);box=new LinearLayout(c);box.setOrientation(LinearLayout.VERTICAL);box.addView(name,new LinearLayout.LayoutParams(-1,Ui.dp(c,40)));box.addView(num,new LinearLayout.LayoutParams(-1,Ui.dp(c,25)));}
+        Holder(Context c){
+            icon=new IconView(c);name=new TextView(c);num=new TextView(c);time=new TextView(c);
+            box=new LinearLayout(c);box.setOrientation(LinearLayout.VERTICAL);
+            box.addView(name,new LinearLayout.LayoutParams(-1,-2));
+            box.addView(num,new LinearLayout.LayoutParams(-1,-2));
+        }
     }
 }
