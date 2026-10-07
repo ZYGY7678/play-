@@ -5,6 +5,7 @@ import com.example.contacts.keys.KeyMapper;
 
 public abstract class BaseKeyActivity extends android.app.Activity{
  protected boolean longHandled=false;
+ @Override protected void onCreate(android.os.Bundle b){super.onCreate(b);getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(com.example.contacts.util.Palette.bg(this)));}
  protected boolean allowTextInput(){return false;}
  protected abstract void onKeyAction(KeyMapper.Result r,boolean down);
  protected void onLongKey(KeyMapper.Result r){}
