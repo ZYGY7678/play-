@@ -24,7 +24,8 @@ import com.example.contacts.widget.FocusableRow;
 import com.example.contacts.widget.SoftKeyBar;
 
 public class InCallActivity extends BaseKeyActivity {
-    private TextView name, number, timer, status, bottomLeft, bottomCenter, bottomRight;
+    private TextView name, number, timer, status;
+    private SoftKeyBar.Key bottomLeft, bottomCenter, bottomRight;
     private View avatar;
     private final Handler handler=new Handler();
     private long started=0L;
@@ -114,7 +115,6 @@ public class InCallActivity extends BaseKeyActivity {
         bottomCenter=soft.center;
         bottomRight=soft.right;
         bottomRight.setNormalColor(Palette.RED);
-        // soft bar spans the full width, so cancel the root's side padding
         LinearLayout.LayoutParams sbp=new LinearLayout.LayoutParams(-1,-2);
         sbp.setMargins(-Ui.dp(this,16),0,-Ui.dp(this,16),0);
         root.addView(soft,sbp);
@@ -126,7 +126,6 @@ public class InCallActivity extends BaseKeyActivity {
         h.setOnClickListener(new View.OnClickListener(){public void onClick(View v){endCall();}});
     }
 
-    /** Left soft key is green only while the phone is ringing (it is "answer"). */
     private void softColors(boolean ringing){
         bottomLeft.setNormalColor(ringing?Palette.GREEN:Palette.text(this));
         bottomCenter.setNormalColor(Palette.text(this));
@@ -247,7 +246,7 @@ public class InCallActivity extends BaseKeyActivity {
                 if(incoming&&!ended&&CallStateHolder.startTime==0)endCall();else endCall();
                 break;
             case MENU:
-                Toast.makeText(this,"אפשרויות שיחה: השתּק / רמקול / ניתוק",Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,"אפשרויות שיחה: השתק / רמקול / ניתוק",Toast.LENGTH_SHORT).show();
                 break;
             case BACK:
                 if(ended)finish();
