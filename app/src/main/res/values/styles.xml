@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
- <style name="AppTheme" parent="@android:style/Theme.Black.NoTitleBar">
-  <item name="android:windowNoTitle">true</item>
-  <item name="android:fontFamily">sans</item>
-  <item name="android:windowActionModeOverlay">true</item>
-  <item name="android:windowBackground">@color/bg_main</item>
-  <item name="android:colorAccent">@color/accent</item>
-  <item name="android:windowDisablePreview">true</item>
- </style>
- <style name="InCallTheme" parent="@android:style/Theme.Black.NoTitleBar">
-  <item name="android:windowNoTitle">true</item>
-  <item name="android:windowBackground">@color/bg_bar</item>
-  <item name="android:colorAccent">@color/accent</item>
-  <item name="android:windowDisablePreview">true</item>
- </style>
+    <style name="AppTheme" parent="@android:style/Theme.Holo.NoActionBar">
+        <item name="android:windowNoTitle">true</item><item name="android:fontFamily">sans</item><item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/bg_main</item><item name="android:colorAccent">@color/accent</item><item name="android:textColorPrimary">@color/text_main</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item><item name="android:textColorHint">@color/text_secondary</item><item name="android:windowDisablePreview">true</item>
+    </style>
+    <style name="InCallTheme" parent="AppTheme"><item name="android:windowBackground">@color/bg_bar</item></style>
 </resources>
