@@ -9,6 +9,7 @@ import com.example.contacts.R;
 import com.example.contacts.util.Palette;
 import com.example.contacts.util.Ui;
 
+/** Simple screen title bar with a hairline underneath. */
 public class ScreenHeader extends LinearLayout {
     public final TextView title;
 
